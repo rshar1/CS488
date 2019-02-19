@@ -1,6 +1,8 @@
 package common;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -93,6 +95,7 @@ public class RUDPSocket implements AutoCloseable {
   @Override
   public void close() throws Exception {
     this.socket.close();
+    // todo close any input streams and output streams that were returned by the class
   }
 
   private void processPacket(DatagramPacket packet) {
@@ -142,5 +145,16 @@ public class RUDPSocket implements AutoCloseable {
     // Send this to the SenderWindow
 
   }
+
+  public InputStream getInputStream() throws IOException {
+    // todo implement
+    return null;
+  }
+
+  public OutputStream getOutputStream() throws IOException {
+    // todo implement
+    return null;
+  }
+
 
 }
