@@ -19,11 +19,12 @@ public class Receiver {
 	        
 	        byte[] data = new byte[1024];
 	        
-	        //socket.setSoTimeout(10000);
+	        
 	        System.out.println("Receiver: connection built. about to receive.");
 	        
 	        	try(RUDPSocket socket = new RUDPSocket(ownPort);)
 	        	{
+	        		//socket.setSoTimeout(10000);
 	        		while(socket.getInputStream().read(data) != -1)
 	        		{
 	        			fis.write(data);
