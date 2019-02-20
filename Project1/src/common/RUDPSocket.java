@@ -7,6 +7,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 
 /**
@@ -38,6 +39,7 @@ public class RUDPSocket implements AutoCloseable {
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
     this.socket = new DatagramSocket(sourcePort);
+    this.socket.setSoTimeout(10000);
     this.status = STATUS.DISCONNECTED;
 
     // Make a thread that listens for any packets coming to the socket
@@ -50,8 +52,17 @@ public class RUDPSocket implements AutoCloseable {
           DatagramPacket packet = new DatagramPacket(buf, buf.length);
           try {
             socket.receive(packet);
+            // todo received a packet successfully
             processPacket(packet);
-          } catch (IOException exc) {
+          } catch (SocketTimeoutException exc) {
+            // todo timeout has been reached...do some work
+            // increment the counters for the sent messsages
+            // check if any messages have timed-out and must be resent
+            // check if there is any room available in the sender window and if so, check if there
+            // is any new application data to be sent. if so, send it and add to the sender window
+
+          }
+          catch (IOException exc) {
             System.out.println("Error receiving packing");
           }
         }
