@@ -203,14 +203,16 @@ public class RUDPSocket implements AutoCloseable {
     return null;
   }
 
-  public OutputStream getOutputStream() throws IOException {
+  public OutputStream getOutputStream() throws IOException { 
     // todo implement
     return null;
   }
 
+	
 
-
-
+  public void processAck(int ackNum) {
+	  
+  }
 
 
 }
