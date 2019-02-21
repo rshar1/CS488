@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.concurrent.Semaphore;
 
 /**
  * A bi-directional communication protocol. This socket is the interface for the application layer
@@ -17,6 +18,8 @@ import java.net.UnknownHostException;
  * acks.
  */
 public class RUDPSocket implements AutoCloseable {
+
+  Semaphore noSpace;
 
   enum STATUS {
     CONNECTED, CONNECTING, DISCONNECTED;
@@ -27,15 +30,16 @@ public class RUDPSocket implements AutoCloseable {
 
     @Override
     public void write(int b) throws IOException {
-      // Prepare RUDP packet
       // check if window space available
       // if true, send it and add else thread sleep
+
     }
 
 
     @Override
     public void write(byte[] bytes) {
-
+      // check if window space available
+      // if true, send it and add else thread sleep
     }
 
 
@@ -164,6 +168,11 @@ public class RUDPSocket implements AutoCloseable {
 
       case CONNECTED:
         // todo process the packet from the remote address
+        // If ack processAck
+
+
+
+
         break;
       case CONNECTING:
         // todo process the packet from  the connecting address
@@ -211,7 +220,14 @@ public class RUDPSocket implements AutoCloseable {
 	
 
   public void processAck(int ackNum) {
-	  
+	  // todo remove from sender window
+    // todo move the sender window forward while the head is acked
+  }
+
+  public void send(byte[] data) {
+    // todo
+    // send packet
+    // add to senderwindow
   }
 
 

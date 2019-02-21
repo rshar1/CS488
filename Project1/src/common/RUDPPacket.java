@@ -18,6 +18,7 @@ public class RUDPPacket {
   private int sequenceNumber; // 4 bytes
   private int ackNum;         // 4 bytes
 
+  private boolean ack;
   private boolean connectAttempt; // 1 byte
   private byte[] data;            // 900 bytes max
 
@@ -93,4 +94,11 @@ public class RUDPPacket {
     return packet;
   }
 
+  public boolean isAck() {
+    return ack;
+  }
+
+  public void setAck(boolean ack) {
+    this.ack = ack;
+  }
 }
