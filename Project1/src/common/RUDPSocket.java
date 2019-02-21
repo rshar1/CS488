@@ -22,6 +22,44 @@ public class RUDPSocket implements AutoCloseable {
     CONNECTED, CONNECTING, DISCONNECTED;
   }
 
+
+  private class RUDPOutputStream extends OutputStream {
+
+    @Override
+    public void write(int b) throws IOException {
+      // Prepare RUDP packet
+      // check if window space available
+      // if true, send it and add else thread sleep
+    }
+
+
+    @Override
+    public void write(byte[] bytes) {
+
+    }
+
+
+  }
+
+
+  private class RUDPInputStream extends InputStream {
+
+    @Override
+    public int read() throws IOException {
+      // todo
+      return 0;
+    }
+
+    @Override
+    public int read(byte[] buf) {
+      // todo
+      return 0;
+    }
+
+
+  }
+
+
   private DatagramSocket socket;
   private int sourcePort;
   private STATUS status = STATUS.DISCONNECTED;
@@ -35,12 +73,15 @@ public class RUDPSocket implements AutoCloseable {
   // This collects the packets coming in so that the data can be returned to the application
   private ReceiverWindow receiver;
 
+  private int sequenceNum;
+
 
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
     this.socket = new DatagramSocket(sourcePort);
     this.socket.setSoTimeout(10000);
     this.status = STATUS.DISCONNECTED;
+    this.sequenceNum = 0;
 
     // Make a thread that listens for any packets coming to the socket
     Runnable receiver = new Runnable() {
@@ -166,6 +207,10 @@ public class RUDPSocket implements AutoCloseable {
     // todo implement
     return null;
   }
+
+
+
+
 
 
 }
