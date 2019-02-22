@@ -1,5 +1,7 @@
 package common;
 
+import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
 import common.SenderWindow.Frame;
@@ -12,7 +14,7 @@ public class SenderWindow {
     private int inc = 0;
   }
   
-  private static final int timeoutNum = 10;
+  private static final int TIMEOUT_NUM = 10;
   private static final int BUFF_SIZE = 12;
   private CircularBuffer<Frame> bufferQueue = new CircularBuffer<>(BUFF_SIZE);
 
@@ -28,12 +30,19 @@ public class SenderWindow {
   }
   
   
-  void timeOut(DatagramSocket socket)
+  void timeOut(DatagramSocket socket) throws IOException
   {
 	  for(Frame f:this.bufferQueue)
 	  {
 		  f.inc++;
+		  if(f.inc == TIMEOUT_NUM)
+		  {
+			  f.inc = 0;
+			  DatagramPacket p = f.packet.convertPacket(socket.getInetAddress(), socket.getPort());
+			  socket.send(p);
+		  }
 	  }
+	  
   }
   
   void getAcks() {

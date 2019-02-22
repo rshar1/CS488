@@ -5,6 +5,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 
 /**
  * The RUDPPacket contains the headers and payload for a reliable datagram. This packet class
@@ -100,5 +102,12 @@ public class RUDPPacket {
 
   public void setAck(boolean ack) {
     this.ack = ack;
+  }
+  
+  public DatagramPacket convertPacket(InetAddress remoteAddress, int remotePort)
+  {
+	  byte[] payload = this.toBytes();
+	  DatagramPacket datagramPacket = new DatagramPacket(payload, payload.length, remoteAddress, remotePort);
+	  return datagramPacket;
   }
 }
