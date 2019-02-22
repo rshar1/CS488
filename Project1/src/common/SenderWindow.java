@@ -35,7 +35,7 @@ public class SenderWindow {
 	  for(Frame f:this.bufferQueue)
 	  {
 		  f.inc++;
-		  if(f.inc == TIMEOUT_NUM)
+		  if(f.inc >= TIMEOUT_NUM)
 		  {
 			  f.inc = 0;
 			  DatagramPacket p = f.packet.convertPacket(socket.getInetAddress(), socket.getPort());
