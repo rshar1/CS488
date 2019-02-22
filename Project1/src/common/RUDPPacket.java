@@ -15,6 +15,8 @@ import java.io.IOException;
  */
 public class RUDPPacket {
 
+  public static final int MAX_DATA_SIZE = 900;
+
   private int sequenceNumber; // 4 bytes
   private int ackNum;         // 4 bytes
 
