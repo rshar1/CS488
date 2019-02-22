@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -21,6 +22,8 @@ public class RUDPSocket implements AutoCloseable {
 
   Semaphore noSpace;
 
+  private long t_out = 1000;
+
   enum STATUS {
     CONNECTED, CONNECTING, DISCONNECTED;
   }
@@ -32,6 +35,22 @@ public class RUDPSocket implements AutoCloseable {
     public void write(int b) throws IOException {
       // check if window space available
       // if true, send it and add else thread sleep
+      if (isClosed()) {
+        throw new IOException("Resource is closed");
+      }
+
+      byte[] bArr = new byte[1];
+      bArr[0] = (byte) b;
+
+      while (!sender.windowAvailable()) {
+        try {
+          Thread.sleep(t_out);
+        } catch (InterruptedException exc) {
+          // todo handle better
+          System.out.println("Interrupted");
+        }
+      }
+      send(bArr);
 
     }
 
@@ -40,6 +59,26 @@ public class RUDPSocket implements AutoCloseable {
     public void write(byte[] bytes) {
       // check if window space available
       // if true, send it and add else thread sleep
+
+      int i = 0;
+
+      while (bytes.length - i > 0) {
+        int dataLength = Math.min(RUDPPacket.MAX_DATA_SIZE, bytes.length - i);
+        byte[] data = Arrays.copyOfRange(bytes, i, i + dataLength);
+
+        while (!sender.windowAvailable()) {
+          try {
+            Thread.sleep(t_out);
+          } catch (InterruptedException exc) {
+            // todo handle better
+            System.out.println("Interrupted");
+          }
+        }
+
+        send(data);
+        i += dataLength;
+      }
+
     }
 
 
@@ -79,6 +118,10 @@ public class RUDPSocket implements AutoCloseable {
 
   private int sequenceNum;
   private static final int MAX_SEQUENCE_NUM = 25;
+
+  // todo initialize these when you connect to a remote port
+  private InputStream m_InputStream;
+  private OutputStream m_OutputStream;
 
 
   public RUDPSocket(int sourcePort) throws SocketException {
@@ -122,7 +165,7 @@ public class RUDPSocket implements AutoCloseable {
    * @param port the remote port to connect to
    * @throws IllegalStateException if this socket is already connected to a remote host
    */
-  public boolean connect(String address, int port) throws UnknownHostException {
+  public boolean connect(String address, int port) throws UnknownHostException, IOException {
 
     if (status != STATUS.DISCONNECTED) {
       throw new IllegalStateException("Cannot connect to multiple hosts");
@@ -151,7 +194,8 @@ public class RUDPSocket implements AutoCloseable {
   @Override
   public void close() throws Exception {
     this.socket.close();
-    // todo close any input streams and output streams that were returned by the class
+    this.m_InputStream.close();
+    this.m_OutputStream.close();
   }
 
   private void processPacket(DatagramPacket packet) {
@@ -179,6 +223,19 @@ public class RUDPSocket implements AutoCloseable {
         break;
       case CONNECTING:
         // todo process the packet from  the connecting address
+        if (rPacket.isAck() && rPacket.isConnectAttempt()) {
+          processAck(rPacket.getAckNum());
+
+          // Ack the packet
+
+
+
+        } else {
+
+        }
+
+
+
         System.out.println("Not yet implemented");
         break;
       case DISCONNECTED:
@@ -195,10 +252,11 @@ public class RUDPSocket implements AutoCloseable {
 
   }
 
-  private void beginConnectionRequest() {
+  private void beginConnectionRequest() throws IOException {
     socket.connect(remoteAddress, remotePort);
+    this.sequenceNum = 0;
 
-    RUDPPacket rudpPacket = new RUDPPacket(1, 0);
+    RUDPPacket rudpPacket = new RUDPPacket(this.sequenceNum, 0);
     rudpPacket.setConnectAttempt(true);
 
     byte[] payload = rudpPacket.toBytes();
@@ -206,18 +264,17 @@ public class RUDPSocket implements AutoCloseable {
 
     status = STATUS.CONNECTING;
 
-    // Send this to the SenderWindow
+    socket.send(packet);
+    sender.addPacket(rudpPacket);
 
   }
 
   public InputStream getInputStream() throws IOException {
-    // todo implement
-    return null;
+    return this.m_InputStream;
   }
 
   public OutputStream getOutputStream() throws IOException { 
-    // todo implement
-    return null;
+    return this.m_OutputStream;
   }
 
 	
