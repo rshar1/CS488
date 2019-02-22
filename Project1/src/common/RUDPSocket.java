@@ -56,7 +56,7 @@ public class RUDPSocket implements AutoCloseable {
 
 
     @Override
-    public void write(byte[] bytes) {
+    public void write(byte[] bytes) throws IOException {
       // check if window space available
       // if true, send it and add else thread sleep
 
@@ -217,7 +217,9 @@ public class RUDPSocket implements AutoCloseable {
     	{
     		this.processAck(rPacket.getAckNum());
     	}
-
+    	//todo store packet in receiver window
+    	this.receiver.addPacket(rPacket);
+    	
 
 
         break;
@@ -288,7 +290,7 @@ public class RUDPSocket implements AutoCloseable {
 	  
   }
 
-  public void send(byte[] data) {
+  public void send(byte[] data) throws IOException {
     // todo
     // send packet
     // add to senderwindow
@@ -297,6 +299,8 @@ public class RUDPSocket implements AutoCloseable {
 	  if(sequenceNum>=MAX_SEQUENCE_NUM)
 		  sequenceNum = 0;
 	  sender.addPacket(myPacket);
+	  //todo chack if any acks need to be sent with this packet.
+	  this.socket.send(myPacket.convertPacket(remoteAddress, remotePort));
 	  
   }
 
