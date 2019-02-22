@@ -64,7 +64,7 @@ public class SenderWindow {
   }
 
   void slideWindow() {
-	  while(this.bufferQueue.peek().isAcked)
+	  while(!this.bufferQueue.isEmpty() &&  this.bufferQueue.peek().isAcked)
 	  {
 		  this.bufferQueue.remove();
 	  }
