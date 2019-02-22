@@ -23,7 +23,7 @@ public class SenderWindow {
     // todo ack a message (mark akced)
 	  for(Frame f:bufferQueue)
 	  {
-		  if(f.packet.getAckNum() == num)
+		  if(f.packet.getSequenceNumber() == num)
 			  f.isAcked = true;
 			  
 	  }
