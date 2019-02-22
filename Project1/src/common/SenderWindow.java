@@ -5,7 +5,7 @@ public class SenderWindow {
 
   class Frame {
     private RUDPPacket packet;
-    private boolean isAcked;
+    private boolean isAcked = false;
     private int inc;
   }
 
@@ -14,7 +14,13 @@ public class SenderWindow {
 
 
   void acceptAck(int num) {
-    // todo append this ack number to an RUDP packet that needs to be sent out
+    // todo ack a message (mark akced)
+	  for(Frame f:bufferQueue)
+	  {
+		  if(f.packet.getAckNum() == num)
+			  f.isAcked = true;
+			  
+	  }
   }
 
   void getAcks() {

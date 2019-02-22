@@ -78,6 +78,7 @@ public class RUDPSocket implements AutoCloseable {
   private ReceiverWindow receiver;
 
   private int sequenceNum;
+  private static final int MAX_SEQUENCE_NUM = 25;
 
 
   public RUDPSocket(int sourcePort) throws SocketException {
@@ -97,7 +98,6 @@ public class RUDPSocket implements AutoCloseable {
           DatagramPacket packet = new DatagramPacket(buf, buf.length);
           try {
             socket.receive(packet);
-            // todo received a packet successfully
             processPacket(packet);
           } catch (SocketTimeoutException exc) {
             // todo timeout has been reached...do some work
@@ -169,7 +169,10 @@ public class RUDPSocket implements AutoCloseable {
       case CONNECTED:
         // todo process the packet from the remote address
         // If ack processAck
-
+    	if(rPacket.isAck())
+    	{
+    		this.processAck(rPacket.getAckNum());
+    	}
 
 
 
@@ -220,14 +223,24 @@ public class RUDPSocket implements AutoCloseable {
 	
 
   public void processAck(int ackNum) {
-	  // todo remove from sender window
+	  // todo mark for removal from sender window
     // todo move the sender window forward while the head is acked
+	  
+	  this.sender.acceptAck(ackNum);
+	  sender.slideWindow();
+	  
   }
 
   public void send(byte[] data) {
     // todo
     // send packet
     // add to senderwindow
+	  RUDPPacket myPacket = new RUDPPacket(sequenceNum,0);
+	  sequenceNum++;
+	  if(sequenceNum>=MAX_SEQUENCE_NUM)
+		  sequenceNum = 0;
+	  sender.addPacket(myPacket);
+	  
   }
 
 
