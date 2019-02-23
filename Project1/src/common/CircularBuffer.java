@@ -60,7 +60,7 @@ public class CircularBuffer<E> implements Queue<E> {
 
   public E get(int index) {
     if (index < 0 || index >= buf.length) {
-      throw new ArrayIndexOutOfBoundsException("Index is out of bounds for this buffer");
+      throw new IndexOutOfBoundsException("Index is out of bounds for this buffer");
     }
     return (E) buf[(head + index) % buf.length];
   }
