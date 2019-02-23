@@ -1,6 +1,5 @@
 package common;
 
-import common.SenderWindow.Frame;
 
 public class ReceiverWindow {
 
@@ -12,12 +11,20 @@ public class ReceiverWindow {
 		  private CircularBuffer<Frame> bufferQueue = new CircularBuffer<>(BUFF_SIZE);
 		  
 		  
-		  void addPacket(RUDPPacket packet) {
-			    // todo
+		  void processReceivedPacket(RUDPPacket packet) {
+			    // todo finish implementing
+					// Check if the packet has any data
+					// If it has data, try to add it to the receiver buffer in the right place
 				  Frame f = new Frame();
 				  f.packet = packet;
 				  this.bufferQueue.add(f);
 			  }
-		  
-		  //todo receiver oerder
+
+			byte[] receivePackets(boolean block) {
+		  	// todo implement
+				// Check if the head of the queue is a placeholder. If it is, then block depending on the value of block.
+				// If there is data, then remove the packet from the queue and return the application data
+				// that was in the packet. Keep looping through until we find some data
+				return null;
+			}
 }

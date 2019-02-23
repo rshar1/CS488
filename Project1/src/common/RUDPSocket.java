@@ -1,5 +1,6 @@
 package common;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -22,6 +23,7 @@ public class RUDPSocket implements AutoCloseable {
 
   Semaphore noSpace;
 
+  // This is how long the writer thread will sleep
   private long t_out = 1000;
 
   enum STATUS {
@@ -87,18 +89,50 @@ public class RUDPSocket implements AutoCloseable {
 
   private class RUDPInputStream extends InputStream {
 
+    private byte[] buf;
+    private InputStream in;
+
+    public RUDPInputStream() {
+      super();
+      buf = null;
+      in = null;
+    }
+
     @Override
     public int read() throws IOException {
+      int res;
       // todo
-      return 0;
+      while (in == null || (res = in.read()) == -1) {
+        buf = receiver.receivePackets(true);
+        in = new ByteArrayInputStream(buf);
+      }
+
+      return res;
     }
 
     @Override
-    public int read(byte[] buf) {
-      // todo
-      return 0;
-    }
+    public int read(byte[] buf) throws IOException {
 
+      for (int i = 0; i < buf.length; i++) {
+
+        int res;
+        while (in == null || (res = in.read()) == -1) {
+          buf = receiver.receivePackets(false);
+
+          if (buf == null) {
+            return i;
+          }
+
+          in = new ByteArrayInputStream(buf);
+        }
+
+        buf[i] = (byte) res;
+
+      }
+
+      return buf.length;
+
+    }
 
   }
 
@@ -218,7 +252,7 @@ public class RUDPSocket implements AutoCloseable {
     		this.processAck(rPacket.getAckNum());
     	}
     	//todo store packet in receiver window
-    	this.receiver.addPacket(rPacket);
+    	this.receiver.processReceivedPacket(rPacket);
     	
 
 
