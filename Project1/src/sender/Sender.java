@@ -9,12 +9,12 @@ import common.RUDPSocket;
 public class Sender {
 
 	
-	final static int ownPort = 8888;
-	final static int targetPort = 7777;
+	final static int ownPort = 7777;
+	final static int targetPort = 8888;
 	static String host = "localhost";
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-	        File file = new File("./Resource/copy_1_tcp.jpg");
+	        File file = new File("./test.txt");
 	        FileInputStream fis = new FileInputStream(file);
 	        
 	        byte[] data = new byte[1024];

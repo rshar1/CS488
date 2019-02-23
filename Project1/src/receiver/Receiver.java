@@ -14,7 +14,7 @@ public class Receiver {
 	static String host = "localhost";
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-	        File file = new File("./Resource/copy_1_tcp.jpg");
+	        File file = new File("./testReceived.txt");
 	        FileOutputStream fis = new FileOutputStream(file);
 	        
 	        byte[] data = new byte[1024];
@@ -24,6 +24,7 @@ public class Receiver {
 	        
 	        	try(RUDPSocket socket = new RUDPSocket(ownPort);)
 	        	{
+	        		socket.acceptConnection();
 	        		//socket.setSoTimeout(10000);
 	        		while(socket.getInputStream().read(data) != -1)
 	        		{

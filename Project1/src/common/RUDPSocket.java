@@ -12,6 +12,8 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
+import sender.Sender;
 
 /**
  * A bi-directional communication protocol. This socket is the interface for the application layer
@@ -21,15 +23,9 @@ import java.util.concurrent.Semaphore;
  */
 public class RUDPSocket implements AutoCloseable {
 
-  Semaphore noSpace;
-
-  // This is how long the writer thread will sleep
-  private long t_out = 1000;
-
   enum STATUS {
     CONNECTED, CONNECTING, DISCONNECTED;
   }
-
 
   private class RUDPOutputStream extends OutputStream {
 
@@ -43,39 +39,19 @@ public class RUDPSocket implements AutoCloseable {
 
       byte[] bArr = new byte[1];
       bArr[0] = (byte) b;
-
-      while (!sender.windowAvailable()) {
-        try {
-          Thread.sleep(t_out);
-        } catch (InterruptedException exc) {
-          // todo handle better
-          System.out.println("Interrupted");
-        }
-      }
       send(bArr);
 
     }
-
 
     @Override
     public void write(byte[] bytes) throws IOException {
       // check if window space available
       // if true, send it and add else thread sleep
-
       int i = 0;
 
       while (bytes.length - i > 0) {
         int dataLength = Math.min(RUDPPacket.MAX_DATA_SIZE, bytes.length - i);
         byte[] data = Arrays.copyOfRange(bytes, i, i + dataLength);
-
-        while (!sender.windowAvailable()) {
-          try {
-            Thread.sleep(t_out);
-          } catch (InterruptedException exc) {
-            // todo handle better
-            System.out.println("Interrupted");
-          }
-        }
 
         send(data);
         i += dataLength;
@@ -83,9 +59,7 @@ public class RUDPSocket implements AutoCloseable {
 
     }
 
-
   }
-
 
   private class RUDPInputStream extends InputStream {
 
@@ -101,7 +75,6 @@ public class RUDPSocket implements AutoCloseable {
     @Override
     public int read() throws IOException {
       int res;
-      // todo
       while (in == null || (res = in.read()) == -1) {
         buf = receiver.receivePackets(true);
         in = new ByteArrayInputStream(buf);
@@ -150,10 +123,12 @@ public class RUDPSocket implements AutoCloseable {
   // This collects the packets coming in so that the data can be returned to the application
   private ReceiverWindow receiver;
 
-  private int sequenceNum;
-  private static final int MAX_SEQUENCE_NUM = 25;
+  private AtomicInteger sequenceNum;
 
-  // todo initialize these when you connect to a remote port
+  static final int MAX_SEQUENCE_NUM = 25;
+
+  Thread listeningThread;
+
   private InputStream m_InputStream;
   private OutputStream m_OutputStream;
 
@@ -163,13 +138,13 @@ public class RUDPSocket implements AutoCloseable {
     this.socket = new DatagramSocket(sourcePort);
     this.socket.setSoTimeout(10000);
     this.status = STATUS.DISCONNECTED;
-    this.sequenceNum = 0;
+    this.sequenceNum = new AtomicInteger(0);
 
     // Make a thread that listens for any packets coming to the socket
     Runnable receiver = new Runnable() {
       @Override
       public void run() {
-        while (true) {
+        while (!isClosed()) {
 
           byte[] buf = new byte[905];
           DatagramPacket packet = new DatagramPacket(buf, buf.length);
@@ -177,12 +152,13 @@ public class RUDPSocket implements AutoCloseable {
             socket.receive(packet);
             processPacket(packet);
           } catch (SocketTimeoutException exc) {
-            // todo timeout has been reached...do some work
-            // increment the counters for the sent messsages
-            // check if any messages have timed-out and must be resent
-            // check if there is any room available in the sender window and if so, check if there
-            // is any new application data to be sent. if so, send it and add to the sender window
-
+            if (sender != null) {
+              try {
+                sender.timeOut(socket);
+              } catch (IOException ioexc) {
+                System.out.println("Error resending packet");
+              }
+            }
           }
           catch (IOException exc) {
             System.out.println("Error receiving packing");
@@ -190,6 +166,9 @@ public class RUDPSocket implements AutoCloseable {
         }
       }
     };
+
+    this.listeningThread = new Thread(receiver);
+    this.listeningThread.start();
 
   }
 
@@ -209,9 +188,12 @@ public class RUDPSocket implements AutoCloseable {
     this.remotePort = port;
     beginConnectionRequest();
 
-    if (status != STATUS.CONNECTED) {
-      status = STATUS.DISCONNECTED;
-      return false;
+    while (status != STATUS.CONNECTED) {
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException exc) {
+        // todo error
+      }
     }
 
     return true;
@@ -228,8 +210,14 @@ public class RUDPSocket implements AutoCloseable {
   @Override
   public void close() throws Exception {
     this.socket.close();
-    this.m_InputStream.close();
-    this.m_OutputStream.close();
+
+    if (this.m_OutputStream != null) {
+      this.m_OutputStream.close();
+    }
+    if (this.m_InputStream != null) {
+      this.m_InputStream.close();
+    }
+
   }
 
   private void processPacket(DatagramPacket packet) {
@@ -242,42 +230,56 @@ public class RUDPSocket implements AutoCloseable {
       return;
     }
 
+    System.out.println("Processing a packet");
+    System.out.println(rPacket.toString());
+
     switch (status) {
 
       case CONNECTED:
-        // todo process the packet from the remote address
-        // If ack processAck
     	if(rPacket.isAck())
     	{
     		this.processAck(rPacket.getAckNum());
     	}
-    	//todo store packet in receiver window
-    	this.receiver.processReceivedPacket(rPacket);
-    	
-
-
-        break;
-      case CONNECTING:
-        // todo process the packet from  the connecting address
-        if (rPacket.isAck() && rPacket.isConnectAttempt()) {
-          processAck(rPacket.getAckNum());
-
-          // Ack the packet
-
-
-
-        } else {
+        try {
+          if (this.receiver.processReceivedPacket(rPacket)) {
+            sendAck(false, rPacket.getSequenceNumber());
+          }
+        } catch (IllegalArgumentException exc) {
 
         }
+        break;
+      case CONNECTING:
+        if (rPacket.isAck() && rPacket.isConnectAttempt()) {
+          this.processAck(rPacket.getAckNum());
+          this.status = STATUS.CONNECTED;
+          sendAck(false, rPacket.getSequenceNumber());
+        } else if (rPacket.isAck()) {
+          this.processAck(rPacket.getAckNum());
+          this.status = status.CONNECTED;
+        }
 
+        this.receiver = new ReceiverWindow(rPacket.getSequenceNumber() + 1);
 
-
-        System.out.println("Not yet implemented");
         break;
       case DISCONNECTED:
-        // todo process this packet from a remote address looking to initiate a connection
+        this.remoteAddress = packet.getAddress();
+        this.remotePort = packet.getPort();
+        //socket.connect(remoteAddress, remotePort);
+        this.sequenceNum.set(0);
 
+        RUDPPacket response = new RUDPPacket(getAndUpdateSequenceNum(), rPacket.getSequenceNumber());
+        response.setAck(true);
+        response.setConnectAttempt(true);
 
+        this.status = STATUS.CONNECTING;
+        this.sender = new SenderWindow();
+        try {
+          System.out.println("Sending packet" + response.toString());
+          socket.send(response.convertPacket(this.remoteAddress, this.remotePort));
+          sender.addPacket(response);
+        } catch (IOException exc) {
+          // todo there was an error sending
+        }
         break;
       default:
         System.out.println("Status undefined");
@@ -289,10 +291,11 @@ public class RUDPSocket implements AutoCloseable {
   }
 
   private void beginConnectionRequest() throws IOException {
-    socket.connect(remoteAddress, remotePort);
-    this.sequenceNum = 0;
+    System.out.println("Attempting connection");
+    //socket.connect(remoteAddress, remotePort);
+    this.sequenceNum.set(10);
 
-    RUDPPacket rudpPacket = new RUDPPacket(this.sequenceNum, 0);
+    RUDPPacket rudpPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
     rudpPacket.setConnectAttempt(true);
 
     byte[] payload = rudpPacket.toBytes();
@@ -300,42 +303,75 @@ public class RUDPSocket implements AutoCloseable {
 
     status = STATUS.CONNECTING;
 
+    this.sender = new SenderWindow();
+
+    System.out.println("Sending a packet" + rudpPacket.toString());
     socket.send(packet);
     sender.addPacket(rudpPacket);
+    System.out.println("Sent connection attempt");
 
   }
 
   public InputStream getInputStream() throws IOException {
+    if (this.getStatus() != STATUS.CONNECTED) {
+      return null;
+    }
+
+    if (this.m_InputStream == null) {
+      this.m_InputStream = new RUDPInputStream();
+    }
+
     return this.m_InputStream;
   }
 
-  public OutputStream getOutputStream() throws IOException { 
+  public OutputStream getOutputStream() throws IOException {
+    if (this.getStatus() != STATUS.CONNECTED) {
+      return null;
+    }
+
+    if (this.m_OutputStream == null) {
+      this.m_OutputStream = new RUDPOutputStream();
+    }
+
     return this.m_OutputStream;
   }
 
-	
-
   public void processAck(int ackNum) {
-	  // todo mark for removal from sender window
-    // todo move the sender window forward while the head is acked
-	  
 	  this.sender.acceptAck(ackNum);
-	  sender.slideWindow();
-	  
   }
 
   public void send(byte[] data) throws IOException {
-    // todo
-    // send packet
-    // add to senderwindow
-	  RUDPPacket myPacket = new RUDPPacket(sequenceNum,0);
-	  sequenceNum++;
-	  if(sequenceNum>=MAX_SEQUENCE_NUM)
-		  sequenceNum = 0;
+	  RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
+	  myPacket.setData(data);
 	  sender.addPacket(myPacket);
-	  //todo chack if any acks need to be sent with this packet.
+	  //todo check if any acks need to be sent with this packet. (OPTIMIZATON)
+    System.out.println("Sending a packet: " + myPacket.toString());
 	  this.socket.send(myPacket.convertPacket(remoteAddress, remotePort));
 	  
+  }
+
+  private void sendAck(boolean connectionAttempt, int ackNum) {
+    RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), ackNum);
+    myPacket.setAck(true);
+    myPacket.setConnectAttempt(connectionAttempt);
+    try {
+      System.out.println("Sending Packet" + myPacket.toString());
+      this.socket.send(myPacket.convertPacket(remoteAddress, remotePort));
+    } catch (IOException exc) {
+      // todo error
+    }
+
+  }
+
+  private int getAndUpdateSequenceNum() {
+    return sequenceNum.getAndUpdate((n) -> (n + 1) % MAX_SEQUENCE_NUM);
+  }
+
+  public void acceptConnection() throws InterruptedException{
+    while (this.status != STATUS.CONNECTED) {
+      Thread.sleep(1000);
+      System.out.println("Waking up");
+    }
   }
 
 }

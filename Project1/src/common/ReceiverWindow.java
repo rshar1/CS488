@@ -40,7 +40,7 @@ public class ReceiverWindow {
 
 		}
 
-	synchronized void processReceivedPacket(RUDPPacket packet) {
+	synchronized boolean processReceivedPacket(RUDPPacket packet) {
 		// Check if the packet has any data
 		// If it has data, try to add it to the receiver buffer in the right place
 		int seqNum = packet.getSequenceNumber();
@@ -57,11 +57,19 @@ public class ReceiverWindow {
 				this.notify();
 			}
 
+			if (packet.hasData())
+				return true;
+			else {
+				return false;
+			}
+
 		} else {
 			// This should never happen as long as we follow the rule of how window size relates
 			// to max sequence number.
 			throw new IllegalArgumentException("The window size is too small for the max window size");
 		}
+
+		// todo return true if an ack should be sent for this packet, otherwise false
 
 	}
 

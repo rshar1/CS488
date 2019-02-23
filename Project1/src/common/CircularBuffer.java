@@ -143,7 +143,7 @@ public class CircularBuffer<E> implements Queue<E> {
 
       @Override
       public boolean hasNext() {
-        return currCount <= size;
+        return currCount < size;
       }
 
       @Override

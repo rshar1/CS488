@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.util.Arrays;
 
 /**
  * The RUDPPacket contains the headers and payload for a reliable datagram. This packet class
@@ -81,7 +82,10 @@ public class RUDPPacket {
 
       dOut.writeInt(sequenceNumber);
       dOut.writeInt(ackNum);
+
+      dOut.writeBoolean(ack);
       dOut.writeBoolean(connectAttempt);
+      dOut.writeInt(dataLength);
       dOut.write(data);
 
       res = out.toByteArray();
@@ -102,11 +106,14 @@ public class RUDPPacket {
 
       int sequenceNumber = din.readInt();
       int ackNum = din.readInt();
+      boolean ack = din.readBoolean();
       boolean connectAttempt = din.readBoolean();
-      byte[] data = new byte[900];
-      int dataLength = din.read(data);
+      int dataLength = din.readInt();
+      byte[] data = new byte[dataLength];
+      din.read(data);
 
       packet = new RUDPPacket(sequenceNumber, ackNum);
+      packet.ack = ack;
       packet.connectAttempt = connectAttempt;
       packet.data = data;
       packet.dataLength = dataLength;
@@ -134,4 +141,17 @@ public class RUDPPacket {
   public int getDataLength() {
     return this.dataLength;
   }
+
+  @Override
+  public String toString() {
+    return "RUDPPacket{" +
+        "sequenceNumber=" + sequenceNumber +
+        ", ackNum=" + ackNum +
+        ", ack=" + ack +
+        ", connectAttempt=" + connectAttempt +
+        ", data=" + Arrays.toString(data) +
+        ", dataLength=" + dataLength +
+        '}';
+  }
+
 }
