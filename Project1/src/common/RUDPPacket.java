@@ -26,9 +26,21 @@ public class RUDPPacket {
   private boolean connectAttempt; // 1 byte
   private byte[] data;            // 900 bytes max
 
+  private int dataLength;
+
   public RUDPPacket(int sequenceNumber, int ackNum) {
     this.sequenceNumber = sequenceNumber;
     this.ackNum = ackNum;
+
+    this.ack = false;
+    this.connectAttempt = false;
+    this.data = new byte[0];
+    this.dataLength = 0;
+
+  }
+
+  public boolean hasData() {
+    return this.dataLength > 0;
   }
 
   public int getSequenceNumber() {
@@ -52,6 +64,11 @@ public class RUDPPacket {
   }
 
   public void setData(byte[] data) {
+    if (data.length > MAX_DATA_SIZE) {
+      throw new IllegalArgumentException("Data passed in is too large");
+    }
+
+    this.dataLength = data.length;
     this.data = data;
   }
 
@@ -92,6 +109,7 @@ public class RUDPPacket {
       packet = new RUDPPacket(sequenceNumber, ackNum);
       packet.connectAttempt = connectAttempt;
       packet.data = data;
+      packet.dataLength = dataLength;
 
     }
 
@@ -111,5 +129,9 @@ public class RUDPPacket {
 	  byte[] payload = this.toBytes();
 	  DatagramPacket datagramPacket = new DatagramPacket(payload, payload.length, remoteAddress, remotePort);
 	  return datagramPacket;
+  }
+
+  public int getDataLength() {
+    return this.dataLength;
   }
 }
