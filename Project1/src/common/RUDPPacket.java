@@ -28,6 +28,7 @@ public class RUDPPacket {
   private byte[] data;            // 900 bytes max
 
   private int dataLength;       // 4 bytes
+  private boolean finished;     // 1 byte
 
   public RUDPPacket(int sequenceNumber, int ackNum) {
     this.sequenceNumber = sequenceNumber;
@@ -37,9 +38,17 @@ public class RUDPPacket {
     this.connectAttempt = false;
     this.data = new byte[0];
     this.dataLength = 0;
-
+    this.finished = false;
   }
 
+  public boolean isFinished() {
+	    return this.finished;
+	  }
+  
+  public void setFinished() {
+	    this.finished = true;
+	  }
+  
   public boolean hasData() {
     return this.dataLength > 0;
   }
@@ -87,6 +96,7 @@ public class RUDPPacket {
       dOut.writeBoolean(connectAttempt);
       dOut.writeInt(dataLength);
       dOut.write(data);
+      dOut.writeBoolean(finished);
 
       res = out.toByteArray();
 
@@ -111,12 +121,14 @@ public class RUDPPacket {
       int dataLength = din.readInt();
       byte[] data = new byte[dataLength];
       din.read(data);
+      boolean finished = din.readBoolean();
 
       packet = new RUDPPacket(sequenceNumber, ackNum);
       packet.ack = ack;
       packet.connectAttempt = connectAttempt;
       packet.data = data;
       packet.dataLength = dataLength;
+      packet.finished = finished;
 
     }
 
@@ -151,6 +163,7 @@ public class RUDPPacket {
         ", connectAttempt=" + connectAttempt +
         ", data=" + Arrays.toString(data) +
         ", dataLength=" + dataLength +
+        ", finished=" + finished +
         '}';
   }
 

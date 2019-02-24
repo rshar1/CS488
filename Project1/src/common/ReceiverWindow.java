@@ -57,7 +57,7 @@ public class ReceiverWindow {
 				this.notify();
 			}
 
-			if (packet.hasData())
+			if (packet.hasData() || packet.isFinished())
 				return true;
 			else {
 				return false;
@@ -93,6 +93,13 @@ public class ReceiverWindow {
 		}
 
 		Frame f = bufferQueue.poll();
+
+		// todo should it be an illegalArgumentException???
+		if(f.packet.isFinished() && !f.packet.hasData()) 
+    	{
+    		throw new IllegalArgumentException("Finished");
+    	}
+		
 		byte[] ret = f.packet.getData();
 		f.packet = null;
 		currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;
@@ -110,7 +117,7 @@ public class ReceiverWindow {
 		Frame frame;
 		while (!(frame = bufferQueue.peek()).isPlaceholder()) {
 			// check if it contains any data
-			if (!frame.packet.hasData()) {
+			if (!frame.packet.hasData() && !frame.packet.isFinished()) {
 				bufferQueue.poll();
 				frame.packet = null;
 				currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;

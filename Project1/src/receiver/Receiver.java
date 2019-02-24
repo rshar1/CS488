@@ -38,7 +38,7 @@ public class Receiver {
 	        System.out.println("Receiver: finished.");
 	        
 	        fis.close();
-		}
+	}
 	
 	
 }

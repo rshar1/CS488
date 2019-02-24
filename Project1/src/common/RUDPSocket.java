@@ -17,9 +17,8 @@ import sender.Sender;
 
 /**
  * A bi-directional communication protocol. This socket is the interface for the application layer
- * to send and receive data reliably to another end-system also using this protocol.
- * This class stores the buffer, and ensures that all messages are acked as well as sending it's own
- * acks.
+ * to send and receive data reliably to another end-system also using this protocol. This class
+ * stores the buffer, and ensures that all messages are acked as well as sending it's own acks.
  */
 public class RUDPSocket implements AutoCloseable {
 
@@ -61,10 +60,15 @@ public class RUDPSocket implements AutoCloseable {
 
   }
 
-  private class RUDPInputStream extends InputStream {
+  public class RUDPInputStream extends InputStream {
 
     private byte[] buf;
     private InputStream in;
+    private boolean senderFinished = false;
+
+    public void setSenderFinished() {
+      this.senderFinished = true;
+    }
 
     public RUDPInputStream() {
       super();
@@ -76,7 +80,12 @@ public class RUDPSocket implements AutoCloseable {
     public int read() throws IOException {
       int res;
       while (in == null || (res = in.read()) == -1) {
-        buf = receiver.receivePackets(true);
+        try {
+          this.buf = receiver.receivePackets(true);
+        } catch (IllegalArgumentException e) {
+          return -1;
+        }
+
         in = new ByteArrayInputStream(buf);
       }
 
@@ -90,7 +99,16 @@ public class RUDPSocket implements AutoCloseable {
 
         int res;
         while (in == null || (res = in.read()) == -1) {
-          this.buf = receiver.receivePackets(false);
+
+          try {
+            this.buf = receiver.receivePackets(false);
+          } catch (IllegalArgumentException e) {
+            if (i > 0) {
+              return i;
+            } else {
+              return -1;
+            }
+          }
 
           if (this.buf == null) {
             return i;
@@ -108,7 +126,6 @@ public class RUDPSocket implements AutoCloseable {
     }
 
   }
-
 
   private DatagramSocket socket;
   private int sourcePort;
@@ -132,6 +149,7 @@ public class RUDPSocket implements AutoCloseable {
   private InputStream m_InputStream;
   private OutputStream m_OutputStream;
 
+  private boolean disconnectingSoon = false;
 
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
@@ -159,8 +177,7 @@ public class RUDPSocket implements AutoCloseable {
                 System.out.println("Error resending packet");
               }
             }
-          }
-          catch (IOException exc) {
+          } catch (IOException exc) {
             System.out.println("Error receiving packing");
           }
         }
@@ -174,6 +191,7 @@ public class RUDPSocket implements AutoCloseable {
 
   /**
    * Begins a new connection with another RUDP socket
+   *
    * @param address the remote address to connect to
    * @param port the remote port to connect to
    * @throws IllegalStateException if this socket is already connected to a remote host
@@ -209,7 +227,6 @@ public class RUDPSocket implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    this.socket.close();
 
     if (this.m_OutputStream != null) {
       this.m_OutputStream.close();
@@ -217,6 +234,20 @@ public class RUDPSocket implements AutoCloseable {
     if (this.m_InputStream != null) {
       this.m_InputStream.close();
     }
+
+    if (!this.disconnectingSoon) {
+      RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
+      myPacket.setFinished();
+
+      System.out.println("Closing with: " + myPacket.toString());
+      socket.send(myPacket.convertPacket(this.remoteAddress, this.remotePort));
+      sender.addPacket(myPacket);
+
+      while (!this.sender.isEmpty()) {
+        Thread.sleep(100);
+      }
+    }
+    this.socket.close();
 
   }
 
@@ -236,13 +267,15 @@ public class RUDPSocket implements AutoCloseable {
     switch (status) {
 
       case CONNECTED:
-    	if(rPacket.isAck())
-    	{
-    		this.processAck(rPacket.getAckNum());
-    	}
+        if (rPacket.isAck()) {
+          this.processAck(rPacket.getAckNum());
+        }
         try {
           if (this.receiver.processReceivedPacket(rPacket)) {
             sendAck(false, rPacket.getSequenceNumber());
+          }
+          if (rPacket.isFinished()) {
+            this.disconnectingSoon = true;
           }
         } catch (IllegalArgumentException exc) {
 
@@ -267,7 +300,8 @@ public class RUDPSocket implements AutoCloseable {
         //socket.connect(remoteAddress, remotePort);
         this.sequenceNum.set(0);
 
-        RUDPPacket response = new RUDPPacket(getAndUpdateSequenceNum(), rPacket.getSequenceNumber());
+        RUDPPacket response = new RUDPPacket(getAndUpdateSequenceNum(),
+            rPacket.getSequenceNumber());
         response.setAck(true);
         response.setConnectAttempt(true);
 
@@ -337,17 +371,17 @@ public class RUDPSocket implements AutoCloseable {
   }
 
   public void processAck(int ackNum) {
-	  this.sender.acceptAck(ackNum);
+    this.sender.acceptAck(ackNum);
   }
 
   public void send(byte[] data) throws IOException {
-	  RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
-	  myPacket.setData(data);
-	  sender.addPacket(myPacket);
-	  //todo check if any acks need to be sent with this packet. (OPTIMIZATON)
+    RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
+    myPacket.setData(data);
+    sender.addPacket(myPacket);
+    //todo check if any acks need to be sent with this packet. (OPTIMIZATON)
     System.out.println("Sending a packet: " + myPacket.toString());
-	  this.socket.send(myPacket.convertPacket(remoteAddress, remotePort));
-	  
+    this.socket.send(myPacket.convertPacket(remoteAddress, remotePort));
+
   }
 
   private void sendAck(boolean connectionAttempt, int ackNum) {
@@ -367,7 +401,7 @@ public class RUDPSocket implements AutoCloseable {
     return sequenceNum.getAndUpdate((n) -> (n + 1) % MAX_SEQUENCE_NUM);
   }
 
-  public void acceptConnection() throws InterruptedException{
+  public void acceptConnection() throws InterruptedException {
     while (this.status != STATUS.CONNECTED) {
       Thread.sleep(1000);
       System.out.println("Waking up");

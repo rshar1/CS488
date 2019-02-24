@@ -45,6 +45,11 @@ public class SenderWindow {
 	  
   }
 
+  boolean isEmpty()
+  {
+	  return this.bufferQueue.size() == 0;
+  }
+
   boolean windowAvailable() {
 	  if(this.bufferQueue.size() == this.BUFF_SIZE)
 		  return false;
