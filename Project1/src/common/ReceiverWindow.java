@@ -1,5 +1,6 @@
 package common;
 
+import common.RUDPSocket.RUDPInputStream;
 
 public class ReceiverWindow {
 
@@ -43,6 +44,8 @@ public class ReceiverWindow {
 	synchronized boolean processReceivedPacket(RUDPPacket packet) {
 		// Check if the packet has any data
 		// If it has data, try to add it to the receiver buffer in the right place
+		
+		
 		int seqNum = packet.getSequenceNumber();
 		int tailSeqNum = (currSequenceNum + BUFF_SIZE) % (RUDPSocket.MAX_SEQUENCE_NUM);
 
@@ -91,8 +94,14 @@ public class ReceiverWindow {
 				return null;
 			}
 		}
-
+		
 		Frame f = bufferQueue.poll();
+		
+		if(f.packet.isFinished() && !f.packet.hasData()) 
+    	{
+    		throw new IllegalArgumentException("Finished");
+    	}
+		
 		byte[] ret = f.packet.getData();
 		f.packet = null;
 		currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;

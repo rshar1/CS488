@@ -28,6 +28,8 @@ public class RUDPPacket {
   private byte[] data;            // 900 bytes max
 
   private int dataLength;
+  
+  private boolean finished;
 
   public RUDPPacket(int sequenceNumber, int ackNum) {
     this.sequenceNumber = sequenceNumber;
@@ -37,9 +39,18 @@ public class RUDPPacket {
     this.connectAttempt = false;
     this.data = new byte[0];
     this.dataLength = 0;
+    this.finished = false;
 
   }
 
+  public boolean isFinished() {
+	    return this.finished;
+	  }
+  
+  public void setFinished() {
+	    this.finished = true;
+	  }
+  
   public boolean hasData() {
     return this.dataLength > 0;
   }

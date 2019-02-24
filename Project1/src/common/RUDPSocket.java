@@ -61,11 +61,17 @@ public class RUDPSocket implements AutoCloseable {
 
   }
 
-  private class RUDPInputStream extends InputStream {
+  public class RUDPInputStream extends InputStream {
 
     private byte[] buf;
     private InputStream in;
-
+    private boolean senderFinished = false;
+    
+    public void setSenderFinished()
+    {
+    	this.senderFinished = true;
+    }
+    
     public RUDPInputStream() {
       super();
       buf = null;
@@ -76,10 +82,18 @@ public class RUDPSocket implements AutoCloseable {
     public int read() throws IOException {
       int res;
       while (in == null || (res = in.read()) == -1) {
+    	  try {
         buf = receiver.receivePackets(true);
+    	  }
+    	  catch(IllegalArgumentException e)
+    	  {
+    		  return -1;
+    	  }
+        
+        
         in = new ByteArrayInputStream(buf);
       }
-
+      
       return res;
     }
 
@@ -90,7 +104,17 @@ public class RUDPSocket implements AutoCloseable {
 
         int res;
         while (in == null || (res = in.read()) == -1) {
-          buf = receiver.receivePackets(false);
+        	
+        	
+        	
+        	
+        	 try {
+        	        buf = receiver.receivePackets(false);
+        	    	  }
+        	    	  catch(IllegalArgumentException e)
+        	    	  {
+        	    		  return -1;
+        	    	  }
 
           if (buf == null) {
             return i;
@@ -102,7 +126,7 @@ public class RUDPSocket implements AutoCloseable {
         buf[i] = (byte) res;
 
       }
-
+      
       return buf.length;
 
     }
@@ -131,6 +155,11 @@ public class RUDPSocket implements AutoCloseable {
 
   private InputStream m_InputStream;
   private OutputStream m_OutputStream;
+  
+  
+  
+  
+  
 
 
   public RUDPSocket(int sourcePort) throws SocketException {
@@ -212,9 +241,21 @@ public class RUDPSocket implements AutoCloseable {
     this.socket.close();
 
     if (this.m_OutputStream != null) {
+    	
+    	RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
+    	myPacket.setFinished();
+  	  	sender.addPacket(myPacket);
+    	
+    	
       this.m_OutputStream.close();
     }
     if (this.m_InputStream != null) {
+    	
+    	
+    	RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
+    	myPacket.setFinished();
+  	  	sender.addPacket(myPacket);
+    	
       this.m_InputStream.close();
     }
 
@@ -236,6 +277,10 @@ public class RUDPSocket implements AutoCloseable {
     switch (status) {
 
       case CONNECTED:
+    	 
+    	
+    	  
+    	  
     	if(rPacket.isAck())
     	{
     		this.processAck(rPacket.getAckNum());
@@ -270,7 +315,7 @@ public class RUDPSocket implements AutoCloseable {
         RUDPPacket response = new RUDPPacket(getAndUpdateSequenceNum(), rPacket.getSequenceNumber());
         response.setAck(true);
         response.setConnectAttempt(true);
-
+        
         this.status = STATUS.CONNECTING;
         this.sender = new SenderWindow();
         try {

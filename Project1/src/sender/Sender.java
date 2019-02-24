@@ -19,13 +19,14 @@ public class Sender {
 	        
 	        byte[] data = new byte[1024];
 	        
+	        System.out.println("Sender: connection built. about to send.");
 	        
-	        System.out.println("Receiver: connection built. about to receive.");
 	        
 	        	try(RUDPSocket socket = new RUDPSocket(ownPort);)
 	        	{
 	        		//socket.setSoTimeout(10000);
 	        		socket.connect(host, targetPort);
+	        		
 	        		while(fis.read(data) != -1)
 	        		{
 	        			socket.getOutputStream().write(data);
@@ -33,9 +34,9 @@ public class Sender {
 	        	}
 	        	catch(Exception e)
 		        {
-	        		//todo
+	        		e.printStackTrace();
 		        }
-	        System.out.println("Receiver: finished.");
+	        System.out.println("Sender: finished.");
 	        
 	        fis.close();
 		}
