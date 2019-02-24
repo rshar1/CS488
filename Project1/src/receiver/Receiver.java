@@ -21,14 +21,14 @@ public class Receiver {
 	        
 	        
 	        System.out.println("Receiver: connection built. about to receive.");
-	        
-	        	try(RUDPSocket socket = new RUDPSocket(ownPort);)
+	        	try(RUDPSocket socket = new RUDPSocket(ownPort))
 	        	{
 	        		socket.acceptConnection();
+	        		int numRead;
 	        		//socket.setSoTimeout(10000);
-	        		while(socket.getInputStream().read(data) != -1)
+	        		while((numRead = socket.getInputStream().read(data)) != -1)
 	        		{
-	        			fis.write(data);
+	        			fis.write(data,0, numRead);
 	        		}
 	        	}
 	        	catch(Exception e)

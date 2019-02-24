@@ -27,7 +27,7 @@ public class RUDPPacket {
   private boolean connectAttempt; // 1 byte
   private byte[] data;            // 900 bytes max
 
-  private int dataLength;
+  private int dataLength;       // 4 bytes
 
   public RUDPPacket(int sequenceNumber, int ackNum) {
     this.sequenceNumber = sequenceNumber;
@@ -77,7 +77,7 @@ public class RUDPPacket {
 
     byte[] res = null;
 
-    try (ByteArrayOutputStream out = new ByteArrayOutputStream(905);
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream(915);
         DataOutputStream dOut = new DataOutputStream(out)) {
 
       dOut.writeInt(sequenceNumber);

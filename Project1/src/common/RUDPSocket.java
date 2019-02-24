@@ -90,13 +90,13 @@ public class RUDPSocket implements AutoCloseable {
 
         int res;
         while (in == null || (res = in.read()) == -1) {
-          buf = receiver.receivePackets(false);
+          this.buf = receiver.receivePackets(false);
 
-          if (buf == null) {
+          if (this.buf == null) {
             return i;
           }
 
-          in = new ByteArrayInputStream(buf);
+          in = new ByteArrayInputStream(this.buf);
         }
 
         buf[i] = (byte) res;
@@ -146,7 +146,7 @@ public class RUDPSocket implements AutoCloseable {
       public void run() {
         while (!isClosed()) {
 
-          byte[] buf = new byte[905];
+          byte[] buf = new byte[915];
           DatagramPacket packet = new DatagramPacket(buf, buf.length);
           try {
             socket.receive(packet);

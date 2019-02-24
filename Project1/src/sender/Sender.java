@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 import common.RUDPSocket;
+import java.util.Arrays;
 
 public class Sender {
 
@@ -26,9 +27,10 @@ public class Sender {
 	        	{
 	        		//socket.setSoTimeout(10000);
 	        		socket.connect(host, targetPort);
-	        		while(fis.read(data) != -1)
+	        		int numRead;
+	        		while((numRead = fis.read(data)) != -1)
 	        		{
-	        			socket.getOutputStream().write(data);
+	        			socket.getOutputStream().write(Arrays.copyOf(data, numRead));
 	        		}
 	        	}
 	        	catch(Exception e)
