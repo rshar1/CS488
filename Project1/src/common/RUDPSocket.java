@@ -154,7 +154,7 @@ public class RUDPSocket implements AutoCloseable {
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
     this.socket = new DatagramSocket(sourcePort);
-    this.socket.setSoTimeout(10000);
+    this.socket.setSoTimeout(1000);
     this.status = STATUS.DISCONNECTED;
     this.sequenceNum = new AtomicInteger(0);
 
@@ -172,7 +172,7 @@ public class RUDPSocket implements AutoCloseable {
           } catch (SocketTimeoutException exc) {
             if (sender != null) {
               try {
-                sender.timeOut(socket);
+                sender.timeOut(socket, remoteAddress, remotePort);
               } catch (IOException ioexc) {
                 System.out.println("Error resending packet");
               }
@@ -276,6 +276,7 @@ public class RUDPSocket implements AutoCloseable {
           }
           if (rPacket.isFinished()) {
             this.disconnectingSoon = true;
+            System.out.println("Preparing for disconnection");
           }
         } catch (IllegalArgumentException exc) {
 

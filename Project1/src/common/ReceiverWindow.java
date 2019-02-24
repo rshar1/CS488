@@ -50,18 +50,38 @@ public class ReceiverWindow {
 
 			int adjustedIndex =
 					(RUDPSocket.MAX_SEQUENCE_NUM - currSequenceNum + seqNum) % RUDPSocket.MAX_SEQUENCE_NUM;
-			Frame m_Frame = bufferQueue.get(adjustedIndex);
+
+			if (adjustedIndex >= BUFF_SIZE) {
+				return false;
+			}
+			Frame m_Frame;
+			try {
+				m_Frame = bufferQueue.get(adjustedIndex);
+			} catch (IndexOutOfBoundsException exc) {
+				System.out.println("MAXSEQNUM: " + RUDPSocket.MAX_SEQUENCE_NUM);
+				System.out.println("Curr Head: " + this.currSequenceNum);
+				System.out.println("Seq num: " + seqNum);
+
+				for (Frame frame : bufferQueue) {
+					if (frame.packet != null) {
+						System.out.println("Frame in buffer" + frame.packet.toString());
+					} else {
+						System.out.println("Placeholder");
+					}
+				}
+
+				throw exc;
+			}
+
 
 			if (m_Frame.isPlaceholder()) {
 				m_Frame.packet = packet;
 				this.notify();
+				if (packet.hasData() || packet.isFinished())
+					return true;
 			}
 
-			if (packet.hasData() || packet.isFinished())
-				return true;
-			else {
-				return false;
-			}
+			return false;
 
 		} else {
 			// This should never happen as long as we follow the rule of how window size relates
@@ -92,21 +112,32 @@ public class ReceiverWindow {
 			}
 		}
 
-		Frame f = bufferQueue.poll();
+		Frame f = bufferQueue.peek();
 
 		// todo should it be an illegalArgumentException???
-		if(f.packet.isFinished() && !f.packet.hasData()) 
-    	{
-    		throw new IllegalArgumentException("Finished");
-    	}
-		
-		byte[] ret = f.packet.getData();
-		f.packet = null;
-		currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;
-		bufferQueue.add(f);
-		slideWindow();
-
-		return ret;
+		if (f.packet.isFinished() && !f.packet.hasData()) {
+			System.out.println("Found a finished packet");
+			throw new IllegalArgumentException("Finished");
+		} else if (f.packet.isFinished()) {
+			byte[] ret = f.packet.getData();
+			f.packet.setData(new byte[0]);
+			return ret;
+		} else if (!f.packet.hasData()) {
+			bufferQueue.poll();
+			f.packet = null;
+			currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;
+			bufferQueue.add(f);
+			slideWindow();
+			return null;
+		} else {
+			bufferQueue.poll();
+			byte[] ret = f.packet.getData();
+			f.packet = null;
+			currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;
+			bufferQueue.add(f);
+			slideWindow();
+			return ret;
+		}
 
 	}
 
