@@ -98,6 +98,7 @@ public class RUDPPacket {
       dOut.writeBoolean(connectAttempt);
       dOut.writeInt(dataLength);
       dOut.write(data);
+      dOut.writeBoolean(finished);
 
       res = out.toByteArray();
 
@@ -121,6 +122,7 @@ public class RUDPPacket {
       boolean connectAttempt = din.readBoolean();
       int dataLength = din.readInt();
       byte[] data = new byte[dataLength];
+      boolean finished = din.readBoolean();
       din.read(data);
 
       packet = new RUDPPacket(sequenceNumber, ackNum);
@@ -128,6 +130,7 @@ public class RUDPPacket {
       packet.connectAttempt = connectAttempt;
       packet.data = data;
       packet.dataLength = dataLength;
+      packet.finished = finished;
 
     }
 

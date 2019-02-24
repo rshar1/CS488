@@ -246,6 +246,12 @@ public class RUDPSocket implements AutoCloseable {
     	myPacket.setFinished();
   	  	sender.addPacket(myPacket);
     	
+  	  	
+  	  	while(this.sender.isEmpty())
+  	  	{
+  	  		this.wait();
+  	  	}
+  	  	this.notify();
     	
       this.m_OutputStream.close();
     }
@@ -255,6 +261,13 @@ public class RUDPSocket implements AutoCloseable {
     	RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
     	myPacket.setFinished();
   	  	sender.addPacket(myPacket);
+  	  	
+  	  	
+  	  	while(this.sender.isEmpty())
+	  	{
+	  		this.wait();
+	  	}
+	  	this.notify();
     	
       this.m_InputStream.close();
     }
