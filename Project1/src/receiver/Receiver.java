@@ -14,20 +14,21 @@ public class Receiver {
 	static String host = "localhost";
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-	        File file = new File("./Resource/copy_1_tcp.jpg");
+	        File file = new File("./testReceived.txt");
 	        FileOutputStream fis = new FileOutputStream(file);
 	        
 	        byte[] data = new byte[1024];
 	        
 	        
 	        System.out.println("Receiver: connection built. about to receive.");
-	        
-	        	try(RUDPSocket socket = new RUDPSocket(ownPort);)
+	        	try(RUDPSocket socket = new RUDPSocket(ownPort))
 	        	{
+	        		socket.acceptConnection();
+	        		int numRead;
 	        		//socket.setSoTimeout(10000);
-	        		while(socket.getInputStream().read(data) != -1)
+	        		while((numRead = socket.getInputStream().read(data)) != -1)
 	        		{
-	        			fis.write(data);
+	        			fis.write(data,0, numRead);
 	        		}
 	        	}
 	        	catch(Exception e)
@@ -37,7 +38,7 @@ public class Receiver {
 	        System.out.println("Receiver: finished.");
 	        
 	        fis.close();
-		}
+	}
 	
 	
 }

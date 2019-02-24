@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.util.Arrays;
 
 /**
  * The RUDPPacket contains the headers and payload for a reliable datagram. This packet class
@@ -26,9 +27,30 @@ public class RUDPPacket {
   private boolean connectAttempt; // 1 byte
   private byte[] data;            // 900 bytes max
 
+  private int dataLength;       // 4 bytes
+  private boolean finished;     // 1 byte
+
   public RUDPPacket(int sequenceNumber, int ackNum) {
     this.sequenceNumber = sequenceNumber;
     this.ackNum = ackNum;
+
+    this.ack = false;
+    this.connectAttempt = false;
+    this.data = new byte[0];
+    this.dataLength = 0;
+    this.finished = false;
+  }
+
+  public boolean isFinished() {
+	    return this.finished;
+	  }
+  
+  public void setFinished() {
+	    this.finished = true;
+	  }
+  
+  public boolean hasData() {
+    return this.dataLength > 0;
   }
 
   public int getSequenceNumber() {
@@ -52,6 +74,11 @@ public class RUDPPacket {
   }
 
   public void setData(byte[] data) {
+    if (data.length > MAX_DATA_SIZE) {
+      throw new IllegalArgumentException("Data passed in is too large");
+    }
+
+    this.dataLength = data.length;
     this.data = data;
   }
 
@@ -59,13 +86,17 @@ public class RUDPPacket {
 
     byte[] res = null;
 
-    try (ByteArrayOutputStream out = new ByteArrayOutputStream(905);
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream(915);
         DataOutputStream dOut = new DataOutputStream(out)) {
 
       dOut.writeInt(sequenceNumber);
       dOut.writeInt(ackNum);
+
+      dOut.writeBoolean(ack);
       dOut.writeBoolean(connectAttempt);
+      dOut.writeInt(dataLength);
       dOut.write(data);
+      dOut.writeBoolean(finished);
 
       res = out.toByteArray();
 
@@ -85,13 +116,19 @@ public class RUDPPacket {
 
       int sequenceNumber = din.readInt();
       int ackNum = din.readInt();
+      boolean ack = din.readBoolean();
       boolean connectAttempt = din.readBoolean();
-      byte[] data = new byte[900];
-      int dataLength = din.read(data);
+      int dataLength = din.readInt();
+      byte[] data = new byte[dataLength];
+      din.read(data);
+      boolean finished = din.readBoolean();
 
       packet = new RUDPPacket(sequenceNumber, ackNum);
+      packet.ack = ack;
       packet.connectAttempt = connectAttempt;
       packet.data = data;
+      packet.dataLength = dataLength;
+      packet.finished = finished;
 
     }
 
@@ -112,4 +149,22 @@ public class RUDPPacket {
 	  DatagramPacket datagramPacket = new DatagramPacket(payload, payload.length, remoteAddress, remotePort);
 	  return datagramPacket;
   }
+
+  public int getDataLength() {
+    return this.dataLength;
+  }
+
+  @Override
+  public String toString() {
+    return "RUDPPacket{" +
+        "sequenceNumber=" + sequenceNumber +
+        ", ackNum=" + ackNum +
+        ", ack=" + ack +
+        ", connectAttempt=" + connectAttempt +
+        ", data=" + Arrays.toString(data) +
+        ", dataLength=" + dataLength +
+        ", finished=" + finished +
+        '}';
+  }
+
 }

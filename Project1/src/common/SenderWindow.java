@@ -4,11 +4,10 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
-import common.SenderWindow.Frame;
 
 public class SenderWindow {
 
-  class Frame {
+  private class Frame {
     private RUDPPacket packet;
     private boolean isAcked = false;
     private int inc = 0;
@@ -19,17 +18,18 @@ public class SenderWindow {
   private CircularBuffer<Frame> bufferQueue = new CircularBuffer<>(BUFF_SIZE);
 
 
-  void acceptAck(int num) {
-    // todo ack a message (mark akced)
+  synchronized void acceptAck(int num) {
 	  for(Frame f:bufferQueue)
 	  {
 		  if(f.packet.getSequenceNumber() == num)
 			  f.isAcked = true;
 			  
 	  }
+
+	  this.slideWindow();
+
   }
-  
-  
+
   void timeOut(DatagramSocket socket) throws IOException
   {
 	  for(Frame f:this.bufferQueue)
@@ -44,29 +44,37 @@ public class SenderWindow {
 	  }
 	  
   }
-  
-  void getAcks() {
-	  //?????????
+
+  boolean isEmpty()
+  {
+	  return this.bufferQueue.size() == 0;
   }
 
   boolean windowAvailable() {
-    // todo return true if there is a free window space
 	  if(this.bufferQueue.size() == this.BUFF_SIZE)
 		  return false;
     return true;
   }
 
-  void addPacket(RUDPPacket packet) {
-    // todo
+  synchronized void addPacket(RUDPPacket packet) {
 	  Frame f = new Frame();
 	  f.packet = packet;
+	  while (!windowAvailable()) {
+	  	try {
+	  		this.wait();
+			} catch (InterruptedException exc) {
+	  		System.out.println("Add packet interrupted");
+			}
+		}
+
 	  this.bufferQueue.add(f);
   }
 
-  void slideWindow() {
+  private void slideWindow() {
 	  while(!this.bufferQueue.isEmpty() &&  this.bufferQueue.peek().isAcked)
 	  {
 		  this.bufferQueue.remove();
+			notify();
 	  }
   }
 
