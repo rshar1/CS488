@@ -51,9 +51,14 @@ public class ReceiverWindow {
 			int adjustedIndex =
 					(RUDPSocket.MAX_SEQUENCE_NUM - currSequenceNum + seqNum) % RUDPSocket.MAX_SEQUENCE_NUM;
 
-			if (adjustedIndex >= BUFF_SIZE) {
+			if (adjustedIndex == BUFF_SIZE) {
 				return false;
 			}
+
+			if (adjustedIndex > BUFF_SIZE) {
+				return true;
+			}
+
 			Frame m_Frame;
 			try {
 				m_Frame = bufferQueue.get(adjustedIndex);
