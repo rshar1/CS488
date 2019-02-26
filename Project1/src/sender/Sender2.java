@@ -16,7 +16,7 @@ public class Sender2 {
 
 	public static void main(String[] args) throws IOException, InterruptedException {
 	        File file = new File("./test.jpg");
-	        File file2 = new File("./senderReceived.jpg");
+	        File file2 = new File("./test2Received.jpg");
 	        FileInputStream fis = new FileInputStream(file);
 	        FileOutputStream fis2 = new FileOutputStream(file2);
 	        
@@ -40,7 +40,7 @@ public class Sender2 {
 						}
 	        			if(numRead2 != -1)
 	        			{
-	        				fis2.write(data,0, numRead2);
+	        				fis2.write(data2,0, numRead2);
 	        			}
 	        		}while((numRead != -1) || (numRead2 != -1));
 	        	}
