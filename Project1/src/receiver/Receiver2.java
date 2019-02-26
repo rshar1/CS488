@@ -31,17 +31,19 @@ public class Receiver2 {
 	        		socket.acceptConnection();
 	        		int numRead;
 	        		int numRead2;
-	        		while(((numRead = socket.getInputStream().read(data)) != -1) && ((numRead2 = fis2.read(data2)) != -1))
+	        		do
 	        		{
-	        			if(((numRead = socket.getInputStream().read(data)) != -1))
+	        			numRead = socket.getInputStream().read(data);
+	        			numRead2 = fis2.read(data2);
+	        			if((numRead != -1))
 	        			{
 	        				fis.write(data,0, numRead);
 	        			}
-	        			if(((numRead2 = fis2.read(data2)) != -1))
+	        			if((numRead2 != -1))
 		        		{
 		        			socket.getOutputStream().write(Arrays.copyOf(data2, numRead2));
 		        		}
-	        		}
+	        		}while((numRead != -1) || (numRead2 != -1));
 	        	}
 	        	catch(Exception e)
 		        {

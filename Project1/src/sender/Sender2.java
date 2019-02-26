@@ -30,17 +30,19 @@ public class Sender2 {
 	        		socket.connect(host, targetPort);
 	        		int numRead;
 	        		int numRead2;
-	        		while(((numRead = fis.read(data)) != -1) && ((numRead2 = socket.getInputStream().read(data2)) != -1))
+	        		do
 	        		{
-	        			if((numRead = fis.read(data)) != -1)
+	        			numRead = fis.read(data);
+	        			numRead2 = socket.getInputStream().read(data2);
+	        			if(numRead != -1)
 						{
 	        				socket.getOutputStream().write(Arrays.copyOf(data, numRead));
 						}
-	        			if((numRead2 = socket.getInputStream().read(data2)) != -1)
+	        			if(numRead2 != -1)
 	        			{
 	        				fis2.write(data,0, numRead2);
 	        			}
-	        		}
+	        		}while((numRead != -1) || (numRead2 != -1));
 	        	}
 	        	catch(Exception e)
 		        {
