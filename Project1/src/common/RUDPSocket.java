@@ -309,7 +309,7 @@ public class RUDPSocket implements AutoCloseable {
         //socket.connect(remoteAddress, remotePort);
         this.sequenceNum.set(0);
 
-        RUDPPacket response = new RUDPPacket(getAndUpdateSequenceNum(),
+        RUDPPacket response = new RUDPPacket(sequenceNum.get(),
             rPacket.getSequenceNumber());
         response.setAck(true);
         response.setConnectAttempt(true);
