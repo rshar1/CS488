@@ -33,7 +33,7 @@ public class Receiver {
 	        	}
 	        	catch(Exception e)
 		        {
-	        		//todo
+		        	e.printStackTrace();
 		        }
 	        System.out.println("Receiver: finished.");
 	        

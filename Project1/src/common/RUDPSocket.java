@@ -154,7 +154,7 @@ public class RUDPSocket implements AutoCloseable {
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
     this.socket = new DatagramSocket(sourcePort);
-    this.socket.setSoTimeout(1000);
+    this.socket.setSoTimeout(100);
     this.status = STATUS.DISCONNECTED;
     this.sequenceNum = new AtomicInteger(0);
 
@@ -240,12 +240,20 @@ public class RUDPSocket implements AutoCloseable {
       myPacket.setFinished();
 
       System.out.println("Closing with: " + myPacket.toString());
+
+
+      while (!this.sender.isEmpty()) {
+        Thread.sleep(100);
+      }
+
+
       socket.send(myPacket.convertPacket(this.remoteAddress, this.remotePort));
       sender.addPacket(myPacket);
 
       while (!this.sender.isEmpty()) {
         Thread.sleep(100);
       }
+
     }
     this.socket.close();
 
@@ -271,7 +279,7 @@ public class RUDPSocket implements AutoCloseable {
           this.processAck(rPacket.getAckNum());
         }
         try {
-          if (this.receiver.processReceivedPacket(rPacket)) {
+          if (!rPacket.isAck() && this.receiver.processReceivedPacket(rPacket)) {
             sendAck(false, rPacket.getSequenceNumber());
           }
           if (rPacket.isFinished()) {
@@ -292,7 +300,7 @@ public class RUDPSocket implements AutoCloseable {
           this.status = status.CONNECTED;
         }
 
-        this.receiver = new ReceiverWindow(rPacket.getSequenceNumber() + 1);
+        this.receiver = new ReceiverWindow(rPacket.getSequenceNumber());
 
         break;
       case DISCONNECTED:
@@ -386,7 +394,7 @@ public class RUDPSocket implements AutoCloseable {
   }
 
   private void sendAck(boolean connectionAttempt, int ackNum) {
-    RUDPPacket myPacket = new RUDPPacket(getAndUpdateSequenceNum(), ackNum);
+    RUDPPacket myPacket = new RUDPPacket(sequenceNum.get(), ackNum);
     myPacket.setAck(true);
     myPacket.setConnectAttempt(connectionAttempt);
     try {
