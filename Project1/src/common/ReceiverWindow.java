@@ -48,15 +48,18 @@ public class ReceiverWindow {
 
 		if (currSequenceNum < tailSeqNum || currSequenceNum > tailSeqNum) {
 
-			int adjustedIndex =
-					(RUDPSocket.MAX_SEQUENCE_NUM - currSequenceNum + seqNum) % RUDPSocket.MAX_SEQUENCE_NUM;
+			int adjustedIndex = getSeqIndexNum(seqNum);
 
-			if (adjustedIndex == BUFF_SIZE) {
-				return false;
-			}
+			int replacement = (seqNum + BUFF_SIZE) % RUDPSocket.MAX_SEQUENCE_NUM;
+			int replacementAdjustedIndex = getSeqIndexNum(replacement);
 
-			if (adjustedIndex > BUFF_SIZE) {
-				return true;
+			if (adjustedIndex >= BUFF_SIZE) {
+				if (replacementAdjustedIndex >= 0 && replacementAdjustedIndex < BUFF_SIZE && bufferQueue
+						.get(replacementAdjustedIndex).isPlaceholder()) {
+					return true;
+				} else {
+					return false;
+				}
 			}
 
 			Frame m_Frame;
@@ -163,6 +166,10 @@ public class ReceiverWindow {
 			}
 		}
 
+	}
+
+	private int getSeqIndexNum(int seqNum) {
+		return (RUDPSocket.MAX_SEQUENCE_NUM - currSequenceNum + seqNum) % RUDPSocket.MAX_SEQUENCE_NUM;
 	}
 
 }

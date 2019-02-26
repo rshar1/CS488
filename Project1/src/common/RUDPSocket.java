@@ -154,7 +154,7 @@ public class RUDPSocket implements AutoCloseable {
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
     this.socket = new DatagramSocket(sourcePort);
-    this.socket.setSoTimeout(1000);
+    this.socket.setSoTimeout(100);
     this.status = STATUS.DISCONNECTED;
     this.sequenceNum = new AtomicInteger(0);
 
