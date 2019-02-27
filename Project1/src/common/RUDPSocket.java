@@ -150,6 +150,8 @@ public class RUDPSocket implements AutoCloseable {
   private OutputStream m_OutputStream;
 
   private boolean disconnectingSoon = false;
+  
+  public static final double RELIABILITY = 0.9; // the closer to 0 the more packets dropped;
 
   public RUDPSocket(int sourcePort) throws SocketException {
     this.sourcePort = sourcePort;
@@ -275,20 +277,26 @@ public class RUDPSocket implements AutoCloseable {
     switch (status) {
 
       case CONNECTED:
-        if (rPacket.isAck()) {
-          this.processAck(rPacket.getAckNum());
-        }
-        try {
-          if (!rPacket.isAck() && this.receiver.processReceivedPacket(rPacket)) {
-            sendAck(false, rPacket.getSequenceNumber());
-          }
-          if (rPacket.isFinished()) {
-            this.disconnectingSoon = true;
-            System.out.println("Preparing for disconnection");
-          }
-        } catch (IllegalArgumentException exc) {
+    	double rand = Math.random();
+    	if(rand<this.RELIABILITY)
+    	{
+    		if (rPacket.isAck()) {
+    			this.processAck(rPacket.getAckNum());
+    		}
+    		try {
+    			if (!rPacket.isAck() && this.receiver.processReceivedPacket(rPacket)) {
+    				sendAck(false, rPacket.getSequenceNumber());
+    			}
+    			if (rPacket.isFinished()) {
+    				this.disconnectingSoon = true;
+    				System.out.println("Preparing for disconnection");
+    			}
+    		} catch (IllegalArgumentException exc) {
 
-        }
+    		}
+    	}
+    	else
+    		System.out.println("Packet purpously dropped with sequence num:" + rPacket.getSequenceNumber());
         break;
       case CONNECTING:
         if (rPacket.isAck() && rPacket.isConnectAttempt()) {
