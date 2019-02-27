@@ -1,6 +1,5 @@
 package common;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -72,27 +71,28 @@ public class RUDPSocket implements AutoCloseable {
   public class RUDPInputStream extends InputStream {
 
     private byte[] buf;
-    private InputStream in;
+    private int currIndex;
 
     public RUDPInputStream() {
       super();
       buf = null;
-      in = null;
+      currIndex = 0;
     }
 
     @Override
     public int read() throws IOException {
       int res;
-      while (in == null || (res = in.read()) == -1) {
+      while (this.buf == null || (currIndex >= buf.length)) {
         try {
+          this.currIndex = 0;
           this.buf = receiver.receivePackets(true);
         } catch (IllegalArgumentException e) {
           return -1;
         }
 
-        in = new ByteArrayInputStream(buf);
       }
 
+      res = this.buf[currIndex++];
       return res;
     }
 
@@ -101,10 +101,10 @@ public class RUDPSocket implements AutoCloseable {
 
       for (int i = 0; i < buf.length; i++) {
 
-        int res;
-        while (in == null || (res = in.read()) == -1) {
+        while (this.buf == null || (currIndex >= this.buf.length)) {
 
           try {
+            this.currIndex = 0;
             this.buf = receiver.receivePackets(false);
           } catch (IllegalArgumentException e) {
             if (i > 0) {
@@ -118,10 +118,9 @@ public class RUDPSocket implements AutoCloseable {
             return i;
           }
 
-          in = new ByteArrayInputStream(this.buf);
         }
 
-        buf[i] = (byte) res;
+        buf[i] = this.buf[currIndex++];
 
       }
 
