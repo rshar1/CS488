@@ -1,29 +1,29 @@
 package sender;
 
-import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 
 import common.RUDPSocket;
 import java.util.Arrays;
 
+/**
+ * This is the sender for a uni-directional file transfer. It connects to the receiver, and ends
+ * the connection when it is done sending the data
+ */
 public class Sender {
 
 	final static int ownPort = 7777;
 	final static int targetPort = 8888;
 	static String host = "localhost";
 
-	public static void main(String[] args) throws IOException, InterruptedException {
-	        File file = new File("./test.txt");
-	        FileInputStream fis = new FileInputStream(file);
+	public static void main(String[] args) {
 	        
 	        byte[] data = new byte[1024];
 	        
 	        System.out.println("Sender: connection built. about to send.");
 	        
-	        	try(RUDPSocket socket = new RUDPSocket(ownPort))
+	        	try(RUDPSocket socket = new RUDPSocket(ownPort);
+						FileInputStream fis = new FileInputStream("./text.txt"))
 	        	{
-	        		//socket.setSoTimeout(10000);
 	        		socket.connect(host, targetPort);
 	        		int numRead;
 	        		while((numRead = fis.read(data)) != -1)
@@ -36,8 +36,6 @@ public class Sender {
 	        		e.printStackTrace();
 		        }
 	        System.out.println("Sender: finished.");
-	        
-	        fis.close();
 		}
 
 }

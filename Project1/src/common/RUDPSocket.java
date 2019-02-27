@@ -9,11 +9,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.util.Arrays;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-import sender.Sender;
 
 /**
  * A bi-directional communication protocol. This socket is the interface for the application layer
@@ -22,10 +19,18 @@ import sender.Sender;
  */
 public class RUDPSocket implements AutoCloseable {
 
+  /**
+   * The different states a connection can be in. An RUDP socket remains connected to the same remote
+   * host until one of them closes the connection. It does not attempt a reconnection
+   */
   enum STATUS {
     CONNECTED, CONNECTING, DISCONNECTED;
   }
 
+  /**
+   * The output stream that allows the application layer to write data to the sender window and send it
+   * If there is no room in the sender window, the write methods will wait.
+   */
   private class RUDPOutputStream extends OutputStream {
 
     @Override
@@ -60,15 +65,14 @@ public class RUDPSocket implements AutoCloseable {
 
   }
 
+  /**
+   * The input stream allows the application layer to read the data from the receiver window in the
+   * correct order.
+   */
   public class RUDPInputStream extends InputStream {
 
     private byte[] buf;
     private InputStream in;
-    private boolean senderFinished = false;
-
-    public void setSenderFinished() {
-      this.senderFinished = true;
-    }
 
     public RUDPInputStream() {
       super();
@@ -127,6 +131,7 @@ public class RUDPSocket implements AutoCloseable {
 
   }
 
+  // The UDP socket that the data is sent through
   private DatagramSocket socket;
   private int sourcePort;
   private STATUS status = STATUS.DISCONNECTED;
@@ -142,9 +147,11 @@ public class RUDPSocket implements AutoCloseable {
 
   private AtomicInteger sequenceNum;
 
+  // This is more than 2 times larger than the BUFF_SIZE
   static final int MAX_SEQUENCE_NUM = 25;
 
-  Thread listeningThread;
+  // The thread that will continuously listen for any received packets and process them accordingly
+  private Thread listeningThread;
 
   private InputStream m_InputStream;
   private OutputStream m_OutputStream;
@@ -198,7 +205,7 @@ public class RUDPSocket implements AutoCloseable {
    * @param port the remote port to connect to
    * @throws IllegalStateException if this socket is already connected to a remote host
    */
-  public boolean connect(String address, int port) throws UnknownHostException, IOException {
+  public boolean connect(String address, int port) throws IOException {
 
     if (status != STATUS.DISCONNECTED) {
       throw new IllegalStateException("Cannot connect to multiple hosts");
@@ -244,14 +251,20 @@ public class RUDPSocket implements AutoCloseable {
       System.out.println("Closing with: " + myPacket.toString());
 
 
+      // todo spinning lock can be changed to monitor
       while (!this.sender.isEmpty()) {
         Thread.sleep(100);
       }
 
 
+      // Once the sender has sent all its packets, we will send a packet indicating that we want to
+      // end the connection
+
       socket.send(myPacket.convertPacket(this.remoteAddress, this.remotePort));
       sender.addPacket(myPacket);
 
+      // when the senderwindow is empty, the other host must have acked the finish packet
+      // todo spinning lock can be improved
       while (!this.sender.isEmpty()) {
         Thread.sleep(100);
       }
@@ -271,8 +284,7 @@ public class RUDPSocket implements AutoCloseable {
       return;
     }
 
-    System.out.println("Processing a packet");
-    System.out.println(rPacket.toString());
+    System.out.println("Processing a packet: " + rPacket);
 
     switch (status) {
 
@@ -314,7 +326,6 @@ public class RUDPSocket implements AutoCloseable {
       case DISCONNECTED:
         this.remoteAddress = packet.getAddress();
         this.remotePort = packet.getPort();
-        //socket.connect(remoteAddress, remotePort);
         this.sequenceNum.set(0);
 
         RUDPPacket response = new RUDPPacket(sequenceNum.get(),
@@ -343,7 +354,7 @@ public class RUDPSocket implements AutoCloseable {
 
   private void beginConnectionRequest() throws IOException {
     System.out.println("Attempting connection");
-    //socket.connect(remoteAddress, remotePort);
+    // The one that initiates the connection starts with a sequence number of 10. This isn't necessary
     this.sequenceNum.set(10);
 
     RUDPPacket rudpPacket = new RUDPPacket(getAndUpdateSequenceNum(), 0);
@@ -356,10 +367,9 @@ public class RUDPSocket implements AutoCloseable {
 
     this.sender = new SenderWindow();
 
-    System.out.println("Sending a packet" + rudpPacket.toString());
+    System.out.println("Sending a packet" + rudpPacket);
     socket.send(packet);
     sender.addPacket(rudpPacket);
-    System.out.println("Sent connection attempt");
 
   }
 
@@ -419,9 +429,9 @@ public class RUDPSocket implements AutoCloseable {
   }
 
   public void acceptConnection() throws InterruptedException {
+    // Accept connection will block until the three way handshake completes
     while (this.status != STATUS.CONNECTED) {
       Thread.sleep(1000);
-      System.out.println("Waking up");
     }
   }
 

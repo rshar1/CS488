@@ -5,6 +5,13 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 
+/**
+ * The circular buffer is a circular queue with a set capacity. That is, if the capacity is reached,
+ * and an add is attempted, it will throw an IllegalStateException.
+ * In contrast to a typical queue structure, this queue allows constant time access to any object
+ * it contains. Additions and removals must be done at the head or tail.
+ * @param <E>
+ */
 public class CircularBuffer<E> implements Queue<E> {
 
   // The window size

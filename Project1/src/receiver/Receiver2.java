@@ -1,13 +1,16 @@
 package receiver;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 
 import common.RUDPSocket;
 
+/**
+ * Bi-directional Receiver. This will be accept a connection, and then it will receive a file, at the
+ * same time as sending one back to the sender. WARNING: WE DID NOT IMPLEMENT AN EXIT.
+ * IT WILL CONTINUOUSLY WAIT FOR MORE DATA FROM THE RECEIVER.
+ */
 public class Receiver2 {
 
 	
@@ -15,18 +18,15 @@ public class Receiver2 {
 	final static int targetPort = 7777;
 	static String host = "localhost";
 
-	public static void main(String[] args) throws IOException, InterruptedException {
-	        File file = new File("./testReceived.jpg");
-	        File file2 = new File("./test2.jpg");
-	        FileOutputStream fis = new FileOutputStream(file);
-	        FileInputStream fis2 = new FileInputStream(file2);
+	public static void main(String[] args) {
 	        
 	        byte[] data = new byte[1024];
 	        byte[] data2 = new byte[1024];
 	        
-	        
 	        System.out.println("Receiver: connection built. about to receive.");
-	        	try(RUDPSocket socket = new RUDPSocket(ownPort))
+	        	try(RUDPSocket socket = new RUDPSocket(ownPort);
+						FileOutputStream outputFile = new FileOutputStream("./testReceived.txt");
+						FileInputStream inputFile = new FileInputStream("./test2.txt"))
 	        	{
 	        		socket.acceptConnection();
 	        		int numRead;
@@ -34,10 +34,10 @@ public class Receiver2 {
 	        		do
 	        		{
 	        			numRead = socket.getInputStream().read(data);
-	        			numRead2 = fis2.read(data2);
+	        			numRead2 = inputFile.read(data2);
 	        			if((numRead != -1))
 	        			{
-	        				fis.write(data,0, numRead);
+	        				outputFile.write(data,0, numRead);
 	        			}
 	        			if((numRead2 != -1))
 		        		{
@@ -50,9 +50,6 @@ public class Receiver2 {
 		        	e.printStackTrace();
 		        }
 	        System.out.println("Receiver: finished.");
-	        
-	        fis.close();
-	        fis2.close();
 	}
 	
 	

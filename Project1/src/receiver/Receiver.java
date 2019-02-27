@@ -1,11 +1,13 @@
 package receiver;
 
-import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 
 import common.RUDPSocket;
 
+/**
+ * This is a uni-directional receiver. That is, it will receive data from the port, and write it to
+ * the file. It will then close when the sender closes its connection.
+ */
 public class Receiver {
 
 	
@@ -13,19 +15,16 @@ public class Receiver {
 	final static int targetPort = 7777;
 	static String host = "localhost";
 
-	public static void main(String[] args) throws IOException, InterruptedException {
-	        File file = new File("./testReceived.txt");
-	        FileOutputStream fis = new FileOutputStream(file);
-	        
+	public static void main(String[] args) {
 	        byte[] data = new byte[1024];
 	        
 	        
 	        System.out.println("Receiver: connection built. about to receive.");
-	        	try(RUDPSocket socket = new RUDPSocket(ownPort))
+	        	try(RUDPSocket socket = new RUDPSocket(ownPort);
+								FileOutputStream fis = new FileOutputStream("./testReceived.txt"))
 	        	{
 	        		socket.acceptConnection();
 	        		int numRead;
-	        		//socket.setSoTimeout(10000);
 	        		while((numRead = socket.getInputStream().read(data)) != -1)
 	        		{
 	        			fis.write(data,0, numRead);
@@ -36,8 +35,6 @@ public class Receiver {
 		        	e.printStackTrace();
 		        }
 	        System.out.println("Receiver: finished.");
-	        
-	        fis.close();
 	}
 	
 	
