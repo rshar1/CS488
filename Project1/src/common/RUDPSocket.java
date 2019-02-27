@@ -251,7 +251,7 @@ public class RUDPSocket implements AutoCloseable {
 
 
       // todo spinning lock can be changed to monitor
-      while (!this.sender.isEmpty()) {
+      while (!this.sender.isEmpty() && !this.disconnectingSoon) {
         Thread.sleep(100);
       }
 
@@ -264,7 +264,7 @@ public class RUDPSocket implements AutoCloseable {
 
       // when the senderwindow is empty, the other host must have acked the finish packet
       // todo spinning lock can be improved
-      while (!this.sender.isEmpty()) {
+      while (!this.sender.isEmpty() && !this.disconnectingSoon) {
         Thread.sleep(100);
       }
 
