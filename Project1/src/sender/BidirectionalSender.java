@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 
 import common.RUDPSocket;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 
 /**
@@ -30,21 +32,16 @@ public class BidirectionalSender {
       Thread receiverEnd = new Thread(() -> {
 
         try {
-          byte[] incomingData = new byte[1024];
-          int numRead;
-          while ((numRead = socket.getInputStream().read(incomingData)) != -1) {
-            for (int i = 0; i < numRead; i++) {
-              if (incomingData[i] != -1) {
-                fos.write(incomingData[i]);
-              } else {
-                System.out.println("-1 found");
-                return;
-              }
+          int dataLength;
+          while ((dataLength = readInt(socket.getInputStream())) > -1) {
+            byte[] incomingData = new byte[dataLength];
+            for (int i = 0; i < incomingData.length; i++) {
+              incomingData[i] = (byte) socket.getInputStream().read();
             }
+            fos.write(incomingData, 0, dataLength);
           }
         } catch (IOException exc) {
           exc.printStackTrace();
-          return;
         }
 
       });
@@ -52,12 +49,11 @@ public class BidirectionalSender {
       receiverEnd.start();
       byte[] data = new byte[1024];
       int numRead;
-      while((numRead = fis.read(data)) != -1)
-      {
+      while ((numRead = fis.read(data)) != -1) {
+        writeInt(socket.getOutputStream(), numRead);
         socket.getOutputStream().write(Arrays.copyOf(data, numRead));
       }
-      socket.getOutputStream().write(-1);
-
+      writeInt(socket.getOutputStream(), -1);
       receiverEnd.join();
 
     }
@@ -65,8 +61,33 @@ public class BidirectionalSender {
     {
       e.printStackTrace();
     }
-    System.out.println("Sender: finished.");
+    System.out.println("Receiver: finished.");
 
   }
+
+  /*
+    Disclaimer by Raami: I got the code in readInt and writeInt from a Google CodeU Project that I contributed to.
+    I continue to use this file as a reference for serialization. Please reference link:
+    https://github.com/rshar1/codeu_project_2017/blob/master/src/codeu/chat/util/Serializers.java
+ */
+  static int readInt(InputStream inputStream) throws IOException {
+
+    int value = 0;
+
+    for (int i = 0; i < 4; i++) {
+      value = (value << 8) | inputStream.read();
+    }
+
+    return value;
+
+  }
+
+  static void writeInt(OutputStream out, int num) throws IOException {
+
+    for (int i = 24; i >= 0; i -= 8) {
+      out.write(0xFF & (num >>> i));
+    }
+  }
+
 
 }
