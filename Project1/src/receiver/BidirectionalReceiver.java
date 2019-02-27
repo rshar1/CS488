@@ -11,7 +11,7 @@ import common.RUDPSocket;
  * Bi-directional Receiver. This will be accept a connection, and then it will receive a file, at
  * the same time as sending one back to the sender.
  */
-public class Receiver2 {
+public class BidirectionalReceiver {
 
 
   final static int ownPort = 8888;

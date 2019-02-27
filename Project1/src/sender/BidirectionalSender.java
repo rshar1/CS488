@@ -11,7 +11,7 @@ import java.util.Arrays;
  * A bi-directional sender. Initiates a connection with the receiver and begins sending data. It
  * will also receive data and store it into a file.
  */
-public class Sender2 {
+public class BidirectionalSender {
 
   final static int ownPort = 7777;
   final static int targetPort = 8888;
