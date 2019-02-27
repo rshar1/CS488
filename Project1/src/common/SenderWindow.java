@@ -5,7 +5,10 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
-
+/**
+ * The sender window contains the packets that have been sent out. It keeps track of which ones
+ * have been acked by the receiver and if they should be removed.
+ */
 public class SenderWindow {
 
   private class Frame {
@@ -18,19 +21,30 @@ public class SenderWindow {
   private static final int BUFF_SIZE = 12;
   private CircularBuffer<Frame> bufferQueue = new CircularBuffer<>(BUFF_SIZE);
 
-
+	/**
+	 * This will set the ack for the given sequence number to true
+	 * @param num
+	 */
   synchronized void acceptAck(int num) {
 	  for(Frame f:bufferQueue)
 	  {
-		  if(f.packet.getSequenceNumber() == num)
-			  f.isAcked = true;
+		  if(f.packet.getSequenceNumber() == num) {
+				f.isAcked = true;
+				this.slideWindow();
+				return;
+			}
 			  
 	  }
 
-	  this.slideWindow();
-
   }
 
+	/**
+	 * Resends all the packets that have reached the time out threshold
+	 * @param socket the socket to send the packets out on
+	 * @param remoteAddress the remote address to send the packets to
+	 * @param port the port of the recipient
+	 * @throws IOException
+	 */
   void timeOut(DatagramSocket socket, InetAddress remoteAddress, int port) throws IOException
   {
 	  for(Frame f:this.bufferQueue)
