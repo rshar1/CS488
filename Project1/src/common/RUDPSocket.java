@@ -81,7 +81,7 @@ public class RUDPSocket implements AutoCloseable {
 
     @Override
     public int read() throws IOException {
-      int res;
+      byte res;
       while (this.buf == null || (currIndex >= buf.length)) {
         try {
           this.currIndex = 0;
@@ -93,7 +93,7 @@ public class RUDPSocket implements AutoCloseable {
       }
 
       res = this.buf[currIndex++];
-      return res;
+      return (0xff & res);
     }
 
     @Override
@@ -251,7 +251,7 @@ public class RUDPSocket implements AutoCloseable {
 
 
       // todo spinning lock can be changed to monitor
-      while (!this.sender.isEmpty()) {
+      while (!this.sender.isEmpty() && !this.disconnectingSoon) {
         Thread.sleep(100);
       }
 
@@ -264,7 +264,7 @@ public class RUDPSocket implements AutoCloseable {
 
       // when the senderwindow is empty, the other host must have acked the finish packet
       // todo spinning lock can be improved
-      while (!this.sender.isEmpty()) {
+      while (!this.sender.isEmpty() && !this.disconnectingSoon) {
         Thread.sleep(100);
       }
 

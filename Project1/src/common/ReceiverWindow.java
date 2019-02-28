@@ -154,6 +154,11 @@ public class ReceiverWindow {
 		// todo should it be an illegalArgumentException???
 		if (f.packet.isFinished() && !f.packet.hasData()) {
 			System.out.println("Found a finished packet");
+			bufferQueue.poll();
+			f.packet = null;
+			currSequenceNum = (currSequenceNum + 1) % RUDPSocket.MAX_SEQUENCE_NUM;
+			bufferQueue.add(f);
+			slideWindow();
 			throw new IllegalArgumentException("Finished");
 		} else if (f.packet.isFinished()) {
 			byte[] ret = f.packet.getData();
