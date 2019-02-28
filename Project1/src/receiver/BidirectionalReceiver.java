@@ -52,6 +52,7 @@ public class BidirectionalReceiver {
       int numRead;
       while((numRead = fis.read(data)) != -1)
       {
+        writeInt(socket.getOutputStream(), numRead);
         socket.getOutputStream().write(Arrays.copyOf(data, numRead));
       }
       writeInt(socket.getOutputStream(), -1);

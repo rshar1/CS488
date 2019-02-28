@@ -61,7 +61,7 @@ public class BidirectionalSender {
     {
       e.printStackTrace();
     }
-    System.out.println("Receiver: finished.");
+    System.out.println("Sender: finished.");
 
   }
 

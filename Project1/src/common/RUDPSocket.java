@@ -81,7 +81,7 @@ public class RUDPSocket implements AutoCloseable {
 
     @Override
     public int read() throws IOException {
-      int res;
+      byte res;
       while (this.buf == null || (currIndex >= buf.length)) {
         try {
           this.currIndex = 0;
@@ -93,7 +93,7 @@ public class RUDPSocket implements AutoCloseable {
       }
 
       res = this.buf[currIndex++];
-      return res;
+      return (0xff & res);
     }
 
     @Override
