@@ -26,7 +26,7 @@ public class BidirectionalReceiver {
 
     try(RUDPSocket socket = new RUDPSocket(ownPort);
         FileInputStream fis = new FileInputStream("./test2.txt");
-        FileOutputStream fos = new FileOutputStream("./test2Received.txt"))
+        FileOutputStream fos = new FileOutputStream("./testReceived.txt"))
     {
       socket.acceptConnection();
 
