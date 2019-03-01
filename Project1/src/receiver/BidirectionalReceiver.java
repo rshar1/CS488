@@ -86,9 +86,13 @@ public class BidirectionalReceiver {
 
   static void writeInt(OutputStream out, int num) throws IOException {
 
+    byte[] bytes = new byte[4];
+    int index = 0;
     for (int i = 24; i >= 0; i -= 8) {
-      out.write(0xFF & (num >>> i));
+      bytes[index++] = (byte) (0xFF & (num >>> i));
     }
+
+    out.write(bytes);
   }
 
 
