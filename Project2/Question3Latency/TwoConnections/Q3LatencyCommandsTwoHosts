@@ -1,0 +1,3 @@
+# Question 3: Multiplexing pinging
+h1 ping -c20 h4 > q3h1h4.txt &
+h7 ping -c20 h8 > q3h7h8.txt &
