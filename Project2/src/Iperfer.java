@@ -31,15 +31,15 @@ public class Iperfer {
     // todo Edward: connect by tcp
     try {
     	
-		Socket serverSocket = new Socket(this.HOSTNAME, this.PORT);
+		Socket server = new Socket(this.HOSTNAME, this.PORT);
 		byte[] data = new byte[1000];
 		int sentB = 0;
 		while(startTime+(this.TIME*1000) > System.currentTimeMillis())
 		{
-			serverSocket.getInputStream().read(data);
-			sentB++;
+			server.getOutputStream().write(data);
+			sentB+=1000;
 		}
-		serverSocket.close();
+		server.close();
 		double sentKB = sentB/1000;
 		double rate = (sentKB/1000)/this.TIME;
 		System.out.println("sent="+sentKB+" KB rate="+rate+" Mbps");
