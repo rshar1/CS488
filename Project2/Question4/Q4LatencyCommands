@@ -1,0 +1,2 @@
+h1 ping -c20 h4 > latency_h1-h4.txt &
+h5 ping -c20 h6 > latency_h5-h6.txt &

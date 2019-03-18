@@ -1,0 +1,34 @@
+Q2. Assume h1 wants to communicate with h4. What is the expected latency and throughput of the path between the hosts?
+- To get from H1 to h4 and back, the packet would need to traverse through links 1 to 3. To find the total latency, I would add up the round trip times for each of the links. The total latency would therefore be: L1 + L2 + L3 = 80.954ms + 21.190ms + 61.077ms = 163.221ms
+- TODO EDWARD: THROUGHPUT PREDICTION
+
+Average RTT: 162.344 ms. Based on the results from this test, my prediction for latency was accurate, with some random error. 
+// TODO EDWARD: WHAT WAS THE THROUGHPUT AFTER THIS TEST
+
+Q3. What is the expected latency and throughput when two pairs of hosts are communicating simultaneously? Three pairs. 
+
+The latency should not be affected by the number of hosts, but the bandwidth will. More specifically, we expect the latency of all the connections to be around the same, but the bandwidth will be distributed between the different connections. For example, the expected latency for all the connections will remain around 160 ms. The throughput for each of them will be 20 / 3 = 7mbits/s.
+
+Two Hosts: 
+h1 -> h4: rtt min/avg/max/mdev = 160.716/162.267/169.150/1.805 ms
+h7 -> h8: rtt min/avg/max/mdev = 160.655/161.674/162.675/0.728 ms
+
+Three hosts: 
+h1 -> h4: rtt min/avg/max/mdev = 160.433/162.942/176.873/3.757 ms
+h7 -> h8: rtt min/avg/max/mdev = 160.962/162.692/174.866/3.167 ms
+h10 -> h9: rtt min/avg/max/mdev = 160.775/162.596/172.207/2.671 ms
+
+// TODO EXPLAIN RESULTS
+// TODO EDWARD: THROUGHPUT PREDICTION FOR TWO HOSTS AND THREE HOSTS. PUT THEM ON THE LINES ABOVE NEAR THE RTT
+
+
+Q4. Assume h1 wants to communicate with h4 at the same time h5 wants to communicate with h6. What is the expected latency and throughput for each pair? 
+
+The latency should not be affected by the fact that they are both communicating at the same time. That is, the RTT for h1 to h4 should still be around 160ms and the RTT for h5 to h6 should be around 43ms (21.190 + 11.29 + 11.013).
+
+h1->h4: average rtt=163.220ms
+h5->h6: average rtt=42.609ms
+
+The latency was as we predicted for the reason stated above. 
+
+// TODO EDWARD: THROUGHPUT THROUGHPUT RESULTS NEEDED
