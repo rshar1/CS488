@@ -34,7 +34,7 @@ public class Iperfer {
 		Socket serverSocket = new Socket(this.HOSTNAME, this.PORT);
 		byte[] data = new byte[1000];
 		int sentB = 0;
-		while(startTime+(this.TIME/1000) > System.currentTimeMillis())
+		while(startTime+(this.TIME*1000) > System.currentTimeMillis())
 		{
 			serverSocket.getInputStream().read(data);
 			sentB++;
