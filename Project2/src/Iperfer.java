@@ -1,3 +1,6 @@
+import java.io.IOException;
+import java.net.*;
+
 public class Iperfer {
 
   private final String HOSTNAME;
@@ -26,6 +29,26 @@ public class Iperfer {
 
 
     // todo Edward: connect by tcp
+    try {
+    	
+		Socket server = new Socket(this.HOSTNAME, this.PORT);
+		byte[] data = new byte[1000];
+		double sentB = 0;
+		while(startTime+(this.TIME*1000) > System.currentTimeMillis())
+		{
+			server.getOutputStream().write(data);
+			sentB+=1000;
+		}
+		server.close();
+		double sentKB = sentB/1000;
+		double rate = (sentKB/1000)/this.TIME;
+		System.out.println("sent="+sentKB+" KB rate="+rate+" Mbps");
+		
+	} catch (Exception e) {
+		System.out.println("Invalid argument");
+		e.printStackTrace();
+	}
+    
   }
 
   public static void main(String[] args) {
