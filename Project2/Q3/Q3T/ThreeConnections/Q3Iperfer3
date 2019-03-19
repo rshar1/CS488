@@ -1,0 +1,6 @@
+h1 iperf -s &
+h7 iperf -s &
+h10 iperf -s &
+h4 java Iperfer -h 10.0.0.1 -p 5001 -t 20 > q3h1h4T &
+h8 java Iperfer -h 10.0.0.7 -p 5001 -t 20 > q3h7h8T &
+h9 java Iperfer -h 10.0.0.10 -p 5001 -t 20 > q3h10h9T &

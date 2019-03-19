@@ -11,15 +11,19 @@ The latency should not be affected by the number of hosts, but the bandwidth wil
 
 Two Hosts: 
 h1 -> h4: rtt min/avg/max/mdev = 160.716/162.267/169.150/1.805 ms
+          throughput = 15.1804 Mbps
 h7 -> h8: rtt min/avg/max/mdev = 160.655/161.674/162.675/0.728 ms
+          throughput = 5.5912 Mbps
 
 Three hosts: 
 h1 -> h4: rtt min/avg/max/mdev = 160.433/162.942/176.873/3.757 ms
+          throughput = 9.5196 Mbps
 h7 -> h8: rtt min/avg/max/mdev = 160.962/162.692/174.866/3.167 ms
+          throughput = 4.8284 Mbps
 h10 -> h9: rtt min/avg/max/mdev = 160.775/162.596/172.207/2.671 ms
+           throughput = 6.0656 Mbps
 
 // TODO EXPLAIN RESULTS
-// TODO EDWARD: THROUGHPUT PREDICTION FOR TWO HOSTS AND THREE HOSTS. PUT THEM ON THE LINES ABOVE NEAR THE RTT
 
 
 Q4. Assume h1 wants to communicate with h4 at the same time h5 wants to communicate with h6. What is the expected latency and throughput for each pair? 
@@ -31,4 +35,9 @@ h5->h6: average rtt=42.609ms
 
 The latency was as we predicted for the reason stated above. 
 
-// TODO EDWARD: THROUGHPUT THROUGHPUT RESULTS NEEDED
+Both connections use link 2. This means that they will both share the throughput of link 2. The throughput of link 2 (about 40) divided by 2 gives roughly 20 mbps per connection and thus becomes the slowest link in each connection.
+
+h1->h4: throughput=16.1244 Mbps
+h5->h6: throughput=18.430799999999998 Mbps
+
+The throughput was as we predicted for the reason stated above. 
