@@ -1,6 +1,6 @@
 Q2. Assume h1 wants to communicate with h4. What is the expected latency and throughput of the path between the hosts?
 - To get from H1 to h4 and back, the packet would need to traverse through links 1 to 3. To find the total latency, I would add up the round trip times for each of the links. The total latency would therefore be: L1 + L2 + L3 = 80.954ms + 21.190ms + 61.077ms = 163.221ms
-- TODO EDWARD: THROUGHPUT PREDICTION
+- The throughput would be limited by the slowest link. Link _has the slowest throughput at _mbps. Therefore the throughput of the path between the hosts is _mbps. //TODO FILL IN NUMBERS
 
 Average RTT: 162.344 ms. Based on the results from this test, my prediction for latency was accurate, with some random error. 
 // TODO EDWARD: WHAT WAS THE THROUGHPUT AFTER THIS TEST
