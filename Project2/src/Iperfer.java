@@ -1,4 +1,3 @@
-import java.io.IOException;
 import java.net.*;
 
 public class Iperfer {
@@ -41,7 +40,7 @@ public class Iperfer {
 		}
 		server.close();
 		double sentKB = sentB/1000;
-		double rate = (sentKB/1000)/this.TIME;
+		double rate = (sentKB / 1000) / this.TIME * 8.0;
 		System.out.println("sent="+sentKB+" KB rate="+rate+" Mbps");
 		
 	} catch (Exception e) {
