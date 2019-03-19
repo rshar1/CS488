@@ -3,7 +3,6 @@ package common;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 
 /**
  * The sender window contains the packets that have been sent out. It keeps track of which ones
@@ -41,11 +40,10 @@ public class SenderWindow {
 	/**
 	 * Resends all the packets that have reached the time out threshold
 	 * @param socket the socket to send the packets out on
-	 * @param remoteAddress the remote address to send the packets to
-	 * @param port the port of the recipient
+	 * @param rudpAddress the address and port that the packets should be resent to on timeout
 	 * @throws IOException
 	 */
-  void timeOut(DatagramSocket socket, InetAddress remoteAddress, int port) throws IOException
+  void timeOut(DatagramSocket socket, RUDPAddress rudpAddress) throws IOException
   {
 	  for(Frame f:this.bufferQueue)
 	  {
@@ -53,7 +51,8 @@ public class SenderWindow {
 		  if(f.inc >= TIMEOUT_NUM)
 		  {
 			  f.inc = 0;
-			  DatagramPacket p = f.packet.convertPacket(remoteAddress, port);
+			  DatagramPacket p = f.packet.convertPacket(rudpAddress);
+			  System.out.println("Sending packet " + f.packet);
 			  socket.send(p);
 		  }
 	  }

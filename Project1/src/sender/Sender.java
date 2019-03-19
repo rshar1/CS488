@@ -22,7 +22,7 @@ public class Sender {
 	        System.out.println("Sender: connection built. about to send.");
 	        
 	        	try(RUDPSocket socket = new RUDPSocket(ownPort);
-						FileInputStream fis = new FileInputStream("./text.txt"))
+						FileInputStream fis = new FileInputStream("./test.txt"))
 	        	{
 	        		socket.connect(host, targetPort);
 	        		int numRead;

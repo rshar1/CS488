@@ -143,10 +143,10 @@ public class RUDPPacket {
     this.ack = ack;
   }
   
-  public DatagramPacket convertPacket(InetAddress remoteAddress, int remotePort)
+  public DatagramPacket convertPacket(RUDPAddress rudpAddress)
   {
 	  byte[] payload = this.toBytes();
-	  DatagramPacket datagramPacket = new DatagramPacket(payload, payload.length, remoteAddress, remotePort);
+	  DatagramPacket datagramPacket = new DatagramPacket(payload, payload.length, rudpAddress.getHost(), rudpAddress.getPort());
 	  return datagramPacket;
   }
 

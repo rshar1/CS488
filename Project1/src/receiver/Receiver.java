@@ -1,5 +1,6 @@
 package receiver;
 
+import common.RUDPServerSocket;
 import java.io.FileOutputStream;
 
 import common.RUDPSocket;
@@ -12,23 +13,22 @@ public class Receiver {
 
 	
 	final static int ownPort = 8888;
-	final static int targetPort = 7777;
-	static String host = "localhost";
 
 	public static void main(String[] args) {
 	        byte[] data = new byte[1024];
 	        
 	        
 	        System.out.println("Receiver: connection built. about to receive.");
-	        	try(RUDPSocket socket = new RUDPSocket(ownPort);
+	        	try(RUDPServerSocket serverSocket = new RUDPServerSocket(ownPort);
 								FileOutputStream fis = new FileOutputStream("./testReceived.txt"))
 	        	{
-	        		socket.acceptConnection();
+	        		RUDPSocket socket = serverSocket.accept();
 	        		int numRead;
 	        		while((numRead = socket.getInputStream().read(data)) != -1)
 	        		{
 	        			fis.write(data,0, numRead);
 	        		}
+	        		socket.close();
 	        	}
 	        	catch(Exception e)
 		        {

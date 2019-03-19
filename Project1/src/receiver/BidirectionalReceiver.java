@@ -1,5 +1,6 @@
 package receiver;
 
+import common.RUDPServerSocket;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -24,11 +25,11 @@ public class BidirectionalReceiver {
 
     System.out.println("Receiver: connection built. about to send.");
 
-    try(RUDPSocket socket = new RUDPSocket(ownPort);
+    try(RUDPServerSocket serversocket = new RUDPServerSocket(ownPort);
         FileInputStream fis = new FileInputStream("./test2.txt");
         FileOutputStream fos = new FileOutputStream("./test2Received.txt"))
     {
-      socket.acceptConnection();
+      RUDPSocket socket = serversocket.accept();
 
       Thread receiverEnd = new Thread(() -> {
 
@@ -57,6 +58,7 @@ public class BidirectionalReceiver {
       }
       writeInt(socket.getOutputStream(), -1);
       receiverEnd.join();
+      socket.close();
 
     }
     catch(Exception e)

@@ -1,5 +1,6 @@
 package receiver;
 
+import common.RUDPServerSocket;
 import common.RUDPSocket;
 
 /**
@@ -17,9 +18,10 @@ public class ReceiverCloseTest {
 
 
     System.out.println("Receiver: connection built. about to receive.");
-    try(RUDPSocket socket = new RUDPSocket(ownPort))
+    try(RUDPServerSocket serversocket = new RUDPServerSocket(ownPort))
     {
-      socket.acceptConnection();
+      RUDPSocket socket = serversocket.accept();
+      socket.close();
     }
     catch(Exception e)
     {
