@@ -1,0 +1,6 @@
+Connecting to host with address: 10.0.0.1
+Port: 5001
+Duration: 20
+At time (millis): 1553030732211
+Which means 19.993 seconds left
+sent=37951.0 KB rate=15.1804 Mbps
