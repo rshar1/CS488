@@ -199,6 +199,44 @@ public class RUDPSocket implements AutoCloseable {
 
   }
 
+  public RUDPSocket() throws SocketException{
+    this.socket = new DatagramSocket();
+    this.sourcePort = this.socket.getLocalPort();
+    this.socket.setSoTimeout(100);
+    this.status = STATUS.DISCONNECTED;
+    this.sequenceNum = new AtomicInteger(0);
+    this.isFromServer = false;
+
+    // Make a thread that listens for any packets coming to the socket
+    Runnable receiver = new Runnable() {
+      @Override
+      public void run() {
+        while (!isClosed()) {
+
+          byte[] buf = new byte[915];
+          DatagramPacket packet = new DatagramPacket(buf, buf.length);
+          try {
+            socket.receive(packet);
+            processPacket(packet);
+          } catch (SocketTimeoutException exc) {
+            if (sender != null) {
+              try {
+                sender.timeOut(socket, remoteAddress);
+              } catch (IOException ioexc) {
+                System.out.println("Error resending packet");
+              }
+            }
+          } catch (IOException exc) {
+            System.out.println("Error receiving packing");
+          }
+        }
+      }
+    };
+
+    this.listeningThread = new Thread(receiver);
+    this.listeningThread.start();
+  }
+
   RUDPSocket(DatagramSocket socket, RUDPServerSocket serverSocket) {
     this.sourcePort = socket.getLocalPort();
     this.socket = socket;

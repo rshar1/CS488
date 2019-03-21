@@ -99,6 +99,14 @@ public class RUDPServerSocket implements AutoCloseable {
 
   private void processPacket(DatagramPacket packet) {
 
+    RUDPPacket rPacket;
+    try {
+      rPacket = RUDPPacket.fromBytes(packet.getData());
+    } catch (IOException exc) {
+      System.out.println("Not an RUDP packet");
+      return;
+    }
+
     RUDPAddress address = new RUDPAddress(packet.getAddress(), packet.getPort());
 
     System.out.println("Received a packet from " + address);
@@ -107,6 +115,12 @@ public class RUDPServerSocket implements AutoCloseable {
       RUDPSocket socket = currentConnections.get(address);
       socket.processPacket(packet);
     } else if (!pendingAddresses.contains(address)) {
+
+      if (!rPacket.isConnectAttempt()) {
+        System.out.println("A non connection attempt is attempting to send a packet");
+        return;
+      }
+
       pendingAddresses.add(address);
       pendingConnections.add(packet);
     }
