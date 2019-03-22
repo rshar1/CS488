@@ -36,9 +36,9 @@ h5->h6: average rtt=42.609ms
 
 The latency was as we predicted for the reason stated above. 
 
-Both connections use link 2. This means that they will both share the throughput of link 2. The throughput of link 2 (about 40) divided by 2 gives roughly 20 mbps per connection and thus becomes the slowest link in each connection.
+Both connections use link 2. This means that they will both share the throughput of link 2. They therefore must share the bandwidth of link 2 between each other. H1->h4 has a max throughput of 20 mbps since link 1 has a bandwidth of 20 mbps. H5->H6 has a max throughput of 25 mpbs since links 4 and 5 have a bandwidth of 25 mbps. We therfore expect that link 2 will be split in such a way that each of the connections get around 20 mbps.  
 
 h1->h4: throughput=16.1244 Mbps
 h5->h6: throughput=18.430799999999998 Mbps
 
-The throughput was as we predicted for the reason stated above. 
+The throughput was slightly lower than we predicted and after several tests, we find that H1->H4 consistantly has a lower throughput than H5->H6. We notice that the latency of h1->h4 is significantly greater than the latency of h5->h6 which may be resulting in the lower than expected throughput. We feel in that case that the latency does have some impact on the throughput. A reason for this can have to do with how TCP functions. That is, TCP requires acknowledgements before sending the next packets of data. A greater round trip time can mean that it takes longer for acknowledgements to make it back to the sender and therefore more downtime.
