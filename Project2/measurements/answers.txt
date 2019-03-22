@@ -7,7 +7,7 @@ Measured Throughput: 21.7024mbps. Based on the results from this test, my predic
 
 Q3. What is the expected latency and throughput when two pairs of hosts are communicating simultaneously? Three pairs. 
 
-The latency should not be affected by the number of hosts, but the bandwidth will. More specifically, we expect the latency of all the connections to be around the same, but the bandwidth will be distributed between the different connections. For example, the expected latency for all the connections will remain around 160 ms. The throughput for each of them will be 20 / 3 = 7mbits/s.
+The latency should not be affected by the number of simultaneous connections, but the bandwidth will. More specifically, we expect the latency of all the connections to be around the same, but the bandwidth will be distributed among the different connections. For example, the expected latency for all the connections will remain around 160 ms. The throughput for each of them should add up to the slowest link. So, since the throughput would normally be 20 Mbps, the throughput of each connection should add up to 20 Mbps. In other words, the throughput for H1 --> h4 plus the throughput for H7 --> H8 should add up to 20 Mbps.
 
 Two Hosts: 
 h1 -> h4: rtt min/avg/max/mdev = 160.716/162.267/169.150/1.805 ms
@@ -23,8 +23,9 @@ h7 -> h8: rtt min/avg/max/mdev = 160.962/162.692/174.866/3.167 ms
 h10 -> h9: rtt min/avg/max/mdev = 160.775/162.596/172.207/2.671 ms
            throughput = 6.0656 Mbps
 
-// TODO EXPLAIN RESULTS
-
+The results are as we expected: as we can see the latency was not affected by the number of simultaneous connections. That is, the RTT was about 160 ms for each of the connections. The throughput also added up to 20 Mbps no matter how many simultaneous connections there were. 
+For two hosts: 15.1804 Mbps + 5.5912 Mbps = 20.7716 Mbps.
+For three hosts: 9.5196 Mbps + 4.8284 Mbps + 6.0656 Mbps = 20.4136 Mbps
 
 Q4. Assume h1 wants to communicate with h4 at the same time h5 wants to communicate with h6. What is the expected latency and throughput for each pair? 
 
@@ -35,9 +36,9 @@ h5->h6: average rtt=42.609ms
 
 The latency was as we predicted for the reason stated above. 
 
-Both connections use link 2. This means that they will both share the throughput of link 2. The throughput of link 2 (about 40) divided by 2 gives roughly 20 mbps per connection and thus becomes the slowest link in each connection.
+Both connections use link 2. This means that they will both share the throughput of link 2. They therefore must share the bandwidth of link 2 between each other. H1->h4 has a max throughput of 20 mbps since link 1 has a bandwidth of 20 mbps. H5->H6 has a max throughput of 25 mpbs since links 4 and 5 have a bandwidth of 25 mbps. We therfore expect that link 2 will be split in such a way that each of the connections get around 20 mbps.  
 
 h1->h4: throughput=16.1244 Mbps
 h5->h6: throughput=18.430799999999998 Mbps
 
-The throughput was as we predicted for the reason stated above. 
+The throughput was slightly lower than we predicted and after several tests, we find that H1->H4 consistantly has a lower throughput than H5->H6. We notice that the latency of h1->h4 is significantly greater than the latency of h5->h6 which may be resulting in the lower than expected throughput. We feel in that case that the latency does have some impact on the throughput. A reason for this can have to do with how TCP functions. That is, TCP requires acknowledgements before sending the next packets of data. A greater round trip time can mean that it takes longer for acknowledgements to make it back to the sender and therefore more downtime. The difference in bandwidth between the two connections also likely leads to some packets being lost and the congestion windows of each connection decreasing. This congestion avoidance is also a possible explanation for why the total throughput of the two connections is lower than our predicted values. 
