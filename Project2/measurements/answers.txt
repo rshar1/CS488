@@ -1,0 +1,44 @@
+Q2. Assume h1 wants to communicate with h4. What is the expected latency and throughput of the path between the hosts?
+- To get from H1 to h4 and back, the packet would need to traverse through links 1 to 3. To find the total latency, I would add up the round trip times for each of the links. The total latency would therefore be: L1 + L2 + L3 = 80.954ms + 21.190ms + 61.077ms = 163.221ms
+- The throughput would be limited by the slowest link. Link 1 has the slowest throughput at 20.5948mbps. Therefore the throughput of the path between the hosts is 20.5948mbps.
+
+Average RTT: 162.344 ms. Based on the results from this test, my prediction for latency was accurate, with some random error. 
+Measured Throughput: 21.7024mbps. Based on the results from this test, my prediction for throughput was accurate, with some random error. 
+
+Q3. What is the expected latency and throughput when two pairs of hosts are communicating simultaneously? Three pairs. 
+
+The latency should not be affected by the number of simultaneous connections, but the bandwidth will. More specifically, we expect the latency of all the connections to be around the same, but the bandwidth will be distributed among the different connections. For example, the expected latency for all the connections will remain around 160 ms. The throughput for each of them should add up to the slowest link. So, since the throughput would normally be 20 Mbps, the throughput of each connection should add up to 20 Mbps. In other words, the throughput for H1 --> h4 plus the throughput for H7 --> H8 should add up to 20 Mbps.
+
+Two Hosts: 
+h1 -> h4: rtt min/avg/max/mdev = 160.716/162.267/169.150/1.805 ms
+          throughput = 15.1804 Mbps
+h7 -> h8: rtt min/avg/max/mdev = 160.655/161.674/162.675/0.728 ms
+          throughput = 5.5912 Mbps
+
+Three hosts: 
+h1 -> h4: rtt min/avg/max/mdev = 160.433/162.942/176.873/3.757 ms
+          throughput = 9.5196 Mbps
+h7 -> h8: rtt min/avg/max/mdev = 160.962/162.692/174.866/3.167 ms
+          throughput = 4.8284 Mbps
+h10 -> h9: rtt min/avg/max/mdev = 160.775/162.596/172.207/2.671 ms
+           throughput = 6.0656 Mbps
+
+The results are as we expected: as we can see the latency was not affected by the number of simultaneous connections. That is, the RTT was about 160 ms for each of the connections. The throughput also added up to 20 Mbps no matter how many simultaneous connections there were. 
+For two hosts: 15.1804 Mbps + 5.5912 Mbps = 20.7716 Mbps.
+For three hosts: 9.5196 Mbps + 4.8284 Mbps + 6.0656 Mbps = 20.4136 Mbps
+
+Q4. Assume h1 wants to communicate with h4 at the same time h5 wants to communicate with h6. What is the expected latency and throughput for each pair? 
+
+The latency should not be affected by the fact that they are both communicating at the same time. That is, the RTT for h1 to h4 should still be around 160ms and the RTT for h5 to h6 should be around 43ms (21.190 + 11.29 + 11.013).
+
+h1->h4: average rtt=163.220ms
+h5->h6: average rtt=42.609ms
+
+The latency was as we predicted for the reason stated above. 
+
+Both connections use link 2. This means that they will both share the throughput of link 2. They therefore must share the bandwidth of link 2 between each other. H1->h4 has a max throughput of 20 mbps since link 1 has a bandwidth of 20 mbps. H5->H6 has a max throughput of 25 mpbs since links 4 and 5 have a bandwidth of 25 mbps. We therfore expect that link 2 will be split in such a way that each of the connections get around 20 mbps.  
+
+h1->h4: throughput=16.1244 Mbps
+h5->h6: throughput=18.430799999999998 Mbps
+
+The throughput was slightly lower than we predicted and after several tests, we find that H1->H4 consistantly has a lower throughput than H5->H6. We notice that the latency of h1->h4 is significantly greater than the latency of h5->h6 which may be resulting in the lower than expected throughput. We feel in that case that the latency does have some impact on the throughput. A reason for this can have to do with how TCP functions. That is, TCP requires acknowledgements before sending the next packets of data. A greater round trip time can mean that it takes longer for acknowledgements to make it back to the sender and therefore more downtime. The difference in bandwidth between the two connections also likely leads to some packets being lost and the congestion windows of each connection decreasing. This congestion avoidance is also a possible explanation for why the total throughput of the two connections is lower than our predicted values. 
