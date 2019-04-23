@@ -115,24 +115,10 @@ int main(int argc, char const *argv[]) {
     exit(-1);
   }
 
-  struct sockaddr_in my_addr;
-
-
-  // TODO GET THE SOURCE PORT
-  bzero(&my_addr, sizeof(my_addr));
-  int len = sizeof(my_addr);
-  getsockname(sock,(struct sockaddr *) &my_addr, &len);
-  src_port = ntohs(my_addr.sin_port); 
-  printf("Source Port is: %u \n", src_port);
-
   //Populate address struct
   addr_in.sin_family = AF_INET;
   addr_in.sin_port = htons(dst_port);
   addr_in.sin_addr.s_addr = dst_addr;
-
-  // TODO THIS ISN'T FILTERING OUT THE LOOPBACK. I THINK IT HAS TO DO WITH
-  // THE FACT THAT THIS IS A RAW SOCKET
-  connect(sock,(struct sockaddr *) &addr_in, sizeof(addr_in));
 
   //Allocate mem for tcp headers and 0
   memset(packet, 0, MSS);
@@ -181,8 +167,7 @@ int main(int argc, char const *argv[]) {
   memcpy(pseudo_packet + sizeof(struct pseudoTCPPacket), tcpHdr, sizeof(struct tcphdr) + strlen(data));
 
   //Set the TCP header's check field
-  tcpHdr->check = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + 
-        sizeof(struct tcphdr) +  strlen(data))));
+  tcpHdr->check = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) +  strlen(data))));
 
   printf("TCP Checksum: %d\n", (int) tcpHdr->check);
 
@@ -194,27 +179,34 @@ int main(int argc, char const *argv[]) {
     printf("Success! Sent %d bytes.\n", bytes_sent);
   }
 
-  char buff[MSS];
-  if (recvfrom(sock, buff, MSS, 0, NULL, NULL) < 0) {
-    perror("Error on recv()");
-  } else {
-    // TODO WE SHOULD PARSE THE RESPONSE HERE
-    struct sockaddr_in source_socket_address, dest_socket_address;
-    struct iphdr *ip_packet = (struct iphdr *) buff;
-    memset(&source_socket_address, 0, sizeof(source_socket_address));
-    source_socket_address.sin_addr.s_addr = ip_packet->saddr;
-    memset(&dest_socket_address, 0, sizeof(dest_socket_address));
-    dest_socket_address.sin_addr.s_addr = ip_packet->daddr;
+  while (1) {
+    // TODO TECHNICALLY THE MAX PACKET SIZE FOR TCP IS 65535
+    char buff[MSS];
+    if (recvfrom(sock, buff, MSS, 0, NULL, NULL) < 0) {
+      perror("Error on recv()");
+    } else {
+      // TODO WE SHOULD PARSE THE RESPONSE HERE
+      struct sockaddr_in source_socket_address, dest_socket_address;
+      struct iphdr *ip_packet = (struct iphdr *) buff;
+      memset(&source_socket_address, 0, sizeof(source_socket_address));
+      source_socket_address.sin_addr.s_addr = ip_packet->saddr;
+      memset(&dest_socket_address, 0, sizeof(dest_socket_address));
+      dest_socket_address.sin_addr.s_addr = ip_packet->daddr;
 
-    printf("Incoming packet: \n");
-    printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
-    printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
-    printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
-    printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
-
+      if (source_socket_address.sin_addr.s_addr == dst_addr) {
+       
+        printf("Incoming packet: \n");
+        printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
+        printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
+        printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
+        printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
+        break;
+      } else {
+        printf("Does not match\n");
+      }
       
+    }
   }
-
   close(sock);
   return 0;
 }
