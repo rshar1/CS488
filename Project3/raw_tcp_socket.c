@@ -17,7 +17,35 @@
 //Data to be sent (appended at the end of the TCP header)
 #define DATA "datastring"
 
-#define MSS (1460)
+const int MSS = 1460;
+const int wscale = 4;
+const double client_bw = 1544000.0
+const unsigned maxwindow = 15000 << wscale;
+const double min_wait = 1.2 * 8 * 40 / client_bw;
+
+//Pseudo header needed for calculating the TCP header checksum
+struct pseudoTCPPacket {
+  uint32_t srcAddr;
+  uint32_t dstAddr;
+  uint8_t zero;
+  uint8_t protocol;
+  uint16_t TCP_len;
+};
+
+// All the data we need to attack a single victim
+struct victim_connection {
+  unsigned id;  // A unique id for each connection (for ex. 1 for 10.0.0.1)
+  u_int32_t dst_addr;  // The address of the victim
+  u_int16_t dst_port;  // The port of the victim
+  unsigned start_ack;  // The first ack we received after the handshake
+  char had_overrun;    // 0 if there was no overrun. 1 if we are overrunning
+  unsigned last_received_seq; // the last received sequence from the victim
+  unsigned last_sent_ack;  // the last ack that we sent
+  unsigned send_seq;       // the sequence we are using to send...this shouldn't change after the handshake
+  unsigned overrun_ack;    // stores the ack that was overrun
+  unsigned is_done;        // if a fin packet was received, it will be 1
+  unsigned window;         // the current window size
+}
 
 // TODO I DONT THINK THIS IS NECESSARY
 //Debug function: dump 'index' bytes beginning at 'buffer'
@@ -62,15 +90,70 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
   return(answer);
 }
 
+int send_packet(int socket,
+                struct victim_connection *m_connection,
+                unsigned seq_nbr,
+                unsigned ack_nbr,
+                int is_ack,
+                void* content,
+                unsigned content_length,
+                char syn,
+                char fin,
+                char rst,
+                int window,
+                int wscale) {
+    // TODO implement send packet to construct the packet and send
+    // it based to the provided socket
 
-//Pseudo header needed for calculating the TCP header checksum
-struct pseudoTCPPacket {
-  uint32_t srcAddr;
-  uint32_t dstAddr;
-  uint8_t zero;
-  uint8_t protocol;
-  uint16_t TCP_len;
-};
+}
+
+int read_packet(struct victim_connection *m_victim, int sock) {
+    // TODO keep reading the socket for a relevent ip
+    // update the sequence number
+}
+
+void handshake(struct victim_connection *m_victim, int sock) {
+    // TODO IMPLEMENT
+}
+
+int beginAttack() {
+
+    // local variables
+    int sock;
+    struct victim_connection m_victim;  // TODO THIS ASSUMES ONE VICTIM
+
+    // TODO Implement
+
+    // Open the socket
+    if((sock = socket(PF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
+      perror("Error while creating socket");
+      exit(-1);
+    }
+    // Set up each connection struct
+    m_victim.id = 2;
+    m_victim.dst_addr = inet_addr("10.0.0.2");
+    m_victim.dst_port = //TODO;
+    m_victim.window = MSS;
+
+    // Connect to each server using 3-way handshake
+    handshake(sock, &m_victim);
+
+    // Get the first ack for each connection
+    
+
+
+    // Begin the pace thread to observe overruns
+
+
+    // begin the real attack
+
+    // Go through each connection and send the next ack
+
+    // for each connection increment the ack by the window size
+
+    // increase the window size by mss as long as its less than the max
+
+}
 
 int main(int argc, char const *argv[]) {
 
