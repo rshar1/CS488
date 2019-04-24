@@ -102,6 +102,7 @@ int send_packet(int socket,
     // TODO implement send packet to construct the packet and send
     // it based to the provided socket
 
+<<<<<<< HEAD
     int bytes_sent;
     struct tcphdr *tcpHdr;
 
@@ -224,6 +225,31 @@ int read_packet(struct victim_connection *m_victim, int sock) {
 
 void handshake(struct victim_connection *m_victim, int sock) {
     // TODO IMPLEMENT
+	unsigned send_seq = 1; //TODO random
+    unsigned ack_nbr=1;
+    int is_ack = 0;
+    void* content = "";
+    unsigned content_length = 0;
+    char syn = 0;
+    char fin = 0;
+    char rst = 0;
+    int window = 5840;
+    int wscale = 0;
+	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
+				content,content_length,syn,fin,rst,
+				window,wscale);
+	int read_seq = read_packet(m_victim, sock);
+	send_seq +=1;
+	ack_nbr = read_seq+1;
+	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
+				content,content_length,syn,fin,rst,
+				window,wscale);
+	ack_nbr = read_seq+1;
+	content="GET / HTTP/1.0\r\n\r\n";
+	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
+				content,content_length,syn,fin,rst,
+				window,wscale);
+	m_victim->send_seq = send_seq + content_length;
 }
 
 int beginAttack() {
@@ -264,6 +290,8 @@ int beginAttack() {
     // increase the window size by mss as long as its less than the max
 
 }
+
+
 
 int main(int argc, char const *argv[]) {
   printf("In Main: About to begin:");
