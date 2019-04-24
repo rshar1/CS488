@@ -14,11 +14,11 @@
 //TCP header (struct tcphdr) definition
 #include <linux/tcp.h>
 
-const int MSS = 1460;
-const int wscale = 4;
-const double client_bw = 1544000.0
-const unsigned maxwindow = 15000 << wscale;
-const double min_wait = 1.2 * 8 * 40 / client_bw;
+#define MSS (1460)
+#define wscale (4)
+#define client_bw (1544000.0)
+#define maxwindow (240000)
+#define min_wait (0.000248704663)
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
@@ -42,7 +42,7 @@ struct victim_connection {
   unsigned overrun_ack;    // stores the ack that was overrun
   unsigned is_done;        // if a fin packet was received, it will be 1
   unsigned window;         // the current window size
-}
+};
 
 // TODO I DONT THINK THIS IS NECESSARY
 //Debug function: dump 'index' bytes beginning at 'buffer'
@@ -98,11 +98,10 @@ int send_packet(int socket,
                 char fin,
                 char rst,
                 int window,
-                int wscale) {
+                int w_scale) {
     // TODO implement send packet to construct the packet and send
     // it based to the provided socket
 
-<<<<<<< HEAD
     int bytes_sent;
     struct tcphdr *tcpHdr;
 
@@ -117,7 +116,7 @@ int send_packet(int socket,
 
     //Pseudo TCP Header + TCP Header + data
     char *pseudo_packet;
-
+    char *data;
     //Populate address struct
     addr_in.sin_family = AF_INET;
     addr_in.sin_port = htons(m_connection->dst_port);
@@ -130,12 +129,14 @@ int send_packet(int socket,
     data = (char *) (packet + sizeof(struct tcphdr));
     memcpy(data, content, content_length);
 
+    unsigned long one = 1;
+
     //Populate tcpHdr
     // TODO WHAT IS THE SOURCE PORT
-    tcpHdr->source = htons(src_port); //16 bit in nbp format of source port
+    tcpHdr->source = htons(6); //16 bit in nbp format of source port
     tcpHdr->dest = htons(m_connection->dst_port); //16 bit in nbp format of destination port
-    tcpHdr->seq = seq_nbr % (1<<32); //32 bit sequence number, initially set to zero
-    tcpHdr->ack_seq = ack_nbr % (1<<32); //32 bit ack sequence number, depends whether ACK is set or not
+    tcpHdr->seq = htonl(seq_nbr % (one<<32)); //32 bit sequence number, initially set to zero
+    tcpHdr->ack_seq = htonl(ack_nbr);// TODO % (1<<32); //32 bit ack sequence number, depends whether ACK is set or not
     tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
     tcpHdr->res1 = 0; //4 bits: Not used
     tcpHdr->cwr = 0; //Congestion control mechanism
@@ -152,14 +153,14 @@ int send_packet(int socket,
 
   //Now we can calculate the checksum for the TCP header
   // TODO WHAT IS THE SRC ADDR??
-  pTCPPacket.srcAddr = src_addr; //32 bit format of source address
+  pTCPPacket.srcAddr = inet_addr("10.0.0.1"); //32 bit format of source address
   pTCPPacket.dstAddr = m_connection->dst_addr; //32 bit format of source address
   pTCPPacket.zero = 0; //8 bit always zero
   pTCPPacket.protocol = IPPROTO_TCP; //8 bit TCP protocol
   pTCPPacket.TCP_len = htons(sizeof(struct tcphdr) + content_length); // 16 bit length of TCP header
 
   //Populate the pseudo packet
-  pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + content_length);
+  pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + content_length));
   memset(pseudo_packet, 0, sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + content_length);
 
   //Copy pseudo header
@@ -177,7 +178,7 @@ int send_packet(int socket,
   printf("TCP Checksum: %d\n", (int) tcpHdr->check);
 
   //Finally, send packet
-  if((bytes_sent = sendto(sock, packet, MSS, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
+  if((bytes_sent = sendto(socket, packet, sizeof(struct tcphdr) + content_length, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
     perror("Error on sendto()");
   }
   else {
@@ -190,42 +191,45 @@ int send_packet(int socket,
 int read_packet(struct victim_connection *m_victim, int sock) {
     // TODO keep reading the socket for a relevent ip
     // update the sequence number
-/*
+
     while (1) {
     // TODO TECHNICALLY THE MAX PACKET SIZE FOR TCP IS 65535
-    char buff[MSS];
-    if (recvfrom(sock, buff, MSS, 0, NULL, NULL) < 0) {
-      perror("Error on recv()");
-    } else {
-      // TODO WE SHOULD PARSE THE RESPONSE HERE
-      struct sockaddr_in source_socket_address, dest_socket_address;
-      struct iphdr *ip_packet = (struct iphdr *) buff;
-      memset(&source_socket_address, 0, sizeof(source_socket_address));
-      source_socket_address.sin_addr.s_addr = ip_packet->saddr;
-      memset(&dest_socket_address, 0, sizeof(dest_socket_address));
-      dest_socket_address.sin_addr.s_addr = ip_packet->daddr;
-
-      if (source_socket_address.sin_addr.s_addr == dst_addr) {
-       
-        printf("Incoming packet: \n");
-        printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
-        printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
-        printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
-        printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
-        break;
+      char buff[MSS];
+      if (recvfrom(sock, buff, MSS, 0, NULL, NULL) < 0) {
+        perror("Error on recv()");
       } else {
-        printf("Does not match\n");
+      // TODO WE SHOULD PARSE THE RESPONSE HERE
+        struct sockaddr_in source_socket_address, dest_socket_address;
+        struct iphdr *ip_packet = (struct iphdr *) buff;
+        memset(&source_socket_address, 0, sizeof(source_socket_address));
+        source_socket_address.sin_addr.s_addr = ip_packet->saddr;
+        memset(&dest_socket_address, 0, sizeof(dest_socket_address));
+        dest_socket_address.sin_addr.s_addr = ip_packet->daddr;
+
+        if (source_socket_address.sin_addr.s_addr == m_victim->dst_addr) {
+
+          unsigned short iphdrlen;
+          iphdrlen = ip_packet->ihl*4;
+
+          struct tcphdr *tcph = (struct tcphdr*)(buff + iphdrlen);
+
+          printf("Incoming packet: \n");
+          printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
+          printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
+          printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
+          printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
+          return ntohl(tcph->seq);
+        } else {
+          printf("Does not match\n");
+        }
       }
-      
     }
-    }
-*/
-    return 10;
+
 }
 
 void handshake(struct victim_connection *m_victim, int sock) {
     // TODO IMPLEMENT
-	unsigned send_seq = 1; //TODO random
+	unsigned send_seq = 256; //TODO random
     unsigned ack_nbr=1;
     int is_ack = 0;
     void* content = "";
@@ -234,22 +238,23 @@ void handshake(struct victim_connection *m_victim, int sock) {
     char fin = 0;
     char rst = 0;
     int window = 5840;
-    int wscale = 0;
+    int w_scale = 0;
 	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
-				content,content_length,syn,fin,rst,
-				window,wscale);
-	int read_seq = read_packet(m_victim, sock);
-	send_seq +=1;
+				content,content_length,1,fin,rst,
+				window,w_scale);
+	unsigned read_seq = read_packet(m_victim, sock);
+  printf("Received packet with sequence num: %u", read_seq);
+  send_seq +=1;
 	ack_nbr = read_seq+1;
-	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
+	send_packet(sock,m_victim,send_seq,ack_nbr,1,
 				content,content_length,syn,fin,rst,
-				window,wscale);
-	ack_nbr = read_seq+1;
+				window,w_scale);
 	content="GET / HTTP/1.0\r\n\r\n";
-	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
-				content,content_length,syn,fin,rst,
-				window,wscale);
+	send_packet(sock,m_victim,send_seq,ack_nbr,1,
+				content,strlen(content),syn,fin,rst,
+				window,w_scale);
 	m_victim->send_seq = send_seq + content_length;
+
 }
 
 int beginAttack() {
@@ -268,11 +273,11 @@ int beginAttack() {
     // Set up each connection struct
     m_victim.id = 2;
     m_victim.dst_addr = inet_addr("10.0.0.2");
-    m_victim.dst_port = //TODO;
+    m_victim.dst_port = 5001;//TODO;
     m_victim.window = MSS;
 
     // Connect to each server using 3-way handshake
-    handshake(sock, &m_victim);
+    handshake(&m_victim, sock);
 
     // Get the first ack for each connection
     
@@ -288,7 +293,7 @@ int beginAttack() {
     // for each connection increment the ack by the window size
 
     // increase the window size by mss as long as its less than the max
-
+    close(sock);
 }
 
 
