@@ -382,7 +382,7 @@ void *checkOverruns(void *vargp) {
 }
 
 int beginAttack(int duration, double target_rate, int num_victims) {
-
+    sleep(1);
     printf("Beginning with %d victims. Please wait 30 seconds.\n", num_victims);
 
     // local variables
