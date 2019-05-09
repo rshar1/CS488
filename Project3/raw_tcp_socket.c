@@ -21,7 +21,6 @@
 #define wscale (4)
 #define client_bw (1544000.0)
 #define maxwindow (240000)
-#define min_wait (0.00024870466321243526)
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
@@ -56,13 +55,6 @@ struct pace_args {
 };
 
 void processOverruns(unsigned seq, struct victim_connection *m_victim);
-
-double d_max(double a, double b) {
-    if (a > b)
-      return a;
-    return b;
-}
-
 
 // TODO I DONT THINK THIS IS NECESSARY
 //Debug function: dump 'index' bytes beginning at 'buffer'
@@ -489,8 +481,7 @@ int beginAttack(int duration, double target_rate, int num_victims) {
         double elapsed_seconds = (after_sent.tv_sec - before_sent.tv_sec) +
                           1.0e-6 * (after_sent.tv_usec - before_sent.tv_usec);
 
-        double secsToWait = d_max(min_wait,
-                            currConnection->window / (curr_rate * num_victims));
+        double secsToWait = currConnection->window / (curr_rate * num_victims);
 
         secsToWait -= elapsed_seconds;
 
