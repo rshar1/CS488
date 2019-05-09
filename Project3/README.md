@@ -15,3 +15,9 @@ Setup to reproduce:
 - compile raw_tcp_socket.c with the pthread flag ( gcc -pthread raw_tcp_socket.c -o raw_tcp_socket )
 - run run.sh (sudo ./run.sh)
 - check the results directory for output.png
+
+Note:
+If getting no such file or directory error, try changing all the 
+./simulate_optack.py 
+to 
+python simulate_optack.py
