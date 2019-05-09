@@ -95,10 +95,9 @@ def opt_ack(args):
     h0 = net.get('h0')
     # Suppress RST packets. Thank you very much, group-who-did-this-last-year !
     h0.popen("iptables -t filter -I OUTPUT -p tcp --dport %d --tcp-flags RST RST -j DROP" % PORT)
-    #h0.popen("raw_tcp_socket %d %d" % (args.nb_servers, args.target_rate), shell=True).wait()
+    h0.popen("./raw_tcp_socket %d %d > /dev/null 2> /dev/null" % (args.nb_servers, args.target_rate), shell=True).wait()
     print('Num Victims: ' +str(args.nb_servers))
     print('Target Rate: ' +str(args.target_rate))
-    CLI(net)
     # Correctly terminate
     net.stop()
 
