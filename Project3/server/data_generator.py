@@ -34,7 +34,7 @@ def parse_args():
 def serve(ipaddr, port, directory, duration):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-	#s.settimeout(5)
+	s.settimeout(5)
 	timeval = struct.pack('ll', 5, 0)
 	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, timeval)
 	if directory is not None:
