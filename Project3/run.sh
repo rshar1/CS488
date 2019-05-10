@@ -3,7 +3,7 @@ declare -a arr_victims=("1" "2" "4" "8" "16" "32" "64")
 declare -a arr_wscale=("1" "2" "4" "8" "14")
 
 # Launch the experiments
-echo "Starting the experiments. It will take about 5 minutes."
+echo "Starting the experiments. It will take about 17 minutes."
 echo  "Note : Ignore the '*** gave up after 3 retries' messages."
 
 for i in "${arr_wscale[@]}"
