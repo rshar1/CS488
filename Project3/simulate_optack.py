@@ -53,6 +53,11 @@ def parse_args():
                         help="Target bandwidth for the client to sustain (Mb/s)",
                         default=72.)
 
+    parser.add_argument('--wscale', '-s',
+                        type=int,
+                        help="The wscale shift value (0-14)",
+                        default=4)
+
     # Expt parameters
     args = parser.parse_args()
     # Convert the target rate from Mb/s to B/s
@@ -95,7 +100,8 @@ def opt_ack(args):
     h0 = net.get('h0')
     # Suppress RST packets. Thank you very much, group-who-did-this-last-year !
     h0.popen("iptables -t filter -I OUTPUT -p tcp --dport %d --tcp-flags RST RST -j DROP" % PORT)
-    h0.popen("./raw_tcp_socket %d %d > /dev/null 2> /dev/null" % (args.nb_servers, args.target_rate), shell=True).wait()
+    h0.popen("./raw_tcp_socket %d %d %d > /dev/null 2> /dev/null"
+            % (args.nb_servers, args.target_rate, args.wscale), shell=True).wait()
     #print('Num Victims: ' +str(args.nb_servers))
     #print('Target Rate: ' +str(args.target_rate))
     # Correctly terminate
