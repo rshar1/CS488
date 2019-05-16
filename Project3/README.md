@@ -1,4 +1,4 @@
-We used Alexander Schaub's (https://bitbucket.org/AlexCid/opt-ack)
+We used some of Alexander Schaub's and Trey Deitch's scripts for our implementation. (https://bitbucket.org/AlexCid/opt-ack) We specifically used the following, with some modifications for our project: 
 - run.sh 
 - simulate_optack.py
 - server directory
