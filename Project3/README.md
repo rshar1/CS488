@@ -21,3 +21,6 @@ If getting no such file or directory error, try changing all the
 ./simulate_optack.py 
 to 
 python simulate_optack.py
+
+Our Presentation:
+https://docs.google.com/presentation/d/1UR4IhMVLR1jX025LmtEQMKepjC7vfdvtxPBr7Fum8ho/edit?usp=sharing
